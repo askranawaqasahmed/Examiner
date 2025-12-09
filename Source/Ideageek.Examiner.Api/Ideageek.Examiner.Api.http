@@ -1,0 +1,22 @@
+@Ideageek.Examiner.Api_HostAddress = https://localhost:7056
+
+### List schools
+GET {{Ideageek.Examiner.Api_HostAddress}}/api/schools
+Accept: application/json
+
+### Generate dummy sheet (replace IDs accordingly)
+GET {{Ideageek.Examiner.Api_HostAddress}}/api/question-sheets/dummy/{{examId}}/STD-0001
+Accept: application/json
+
+### Evaluate dummy sheet
+POST {{Ideageek.Examiner.Api_HostAddress}}/api/question-sheets/dummy/evaluate
+Content-Type: application/json
+
+{
+  "sheetCode": "REPLACE",
+  "studentNumber": "STD-0001",
+  "answers": {
+    "1": "A",
+    "2": "B"
+  }
+}
