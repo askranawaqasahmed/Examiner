@@ -9,10 +9,12 @@ namespace Ideageek.Examiner.Core.Services;
 public class StudentService : IStudentService
 {
     private readonly IStudentRepository _studentRepository;
+    private readonly IUserService _userService;
 
-    public StudentService(IStudentRepository studentRepository)
+    public StudentService(IStudentRepository studentRepository, IUserService userService)
     {
         _studentRepository = studentRepository;
+        _userService = userService;
     }
 
     public async Task<IEnumerable<StudentDto>> GetAllAsync()
@@ -33,8 +35,21 @@ public class StudentService : IStudentService
     public async Task<IEnumerable<StudentDto>> GetByClassAsync(Guid classId)
         => (await _studentRepository.GetByClassAsync(classId)).Select(Map);
 
-    public Task<Guid> CreateAsync(StudentRequestDto request)
+    public async Task<Guid> CreateAsync(StudentRequestDto request)
     {
+        var usernameToUse = string.IsNullOrWhiteSpace(request.Username)
+            ? request.StudentNumber
+            : request.Username.Trim();
+        var passwordToUse = string.IsNullOrWhiteSpace(request.Password)
+            ? request.StudentNumber
+            : request.Password;
+
+        var existingUser = await _userService.GetByUsernameAsync(usernameToUse);
+        if (existingUser is not null)
+        {
+            throw new InvalidOperationException("Username already exists.");
+        }
+
         var entity = new Student
         {
             Id = Guid.NewGuid(),
@@ -46,7 +61,9 @@ public class StudentService : IStudentService
             CreatedAt = DateTime.UtcNow
         };
 
-        return _studentRepository.InsertAsync(entity);
+        await _studentRepository.InsertAsync(entity);
+        await _userService.CreateStudentUserAsync(entity, usernameToUse, passwordToUse);
+        return entity.Id;
     }
 
     public async Task<bool> UpdateAsync(Guid id, StudentRequestDto request)
@@ -66,7 +83,11 @@ public class StudentService : IStudentService
         return await _studentRepository.UpdateAsync(entity);
     }
 
-    public Task<bool> DeleteAsync(Guid id) => _studentRepository.DeleteAsync(id);
+    public async Task<bool> DeleteAsync(Guid id)
+    {
+        await _userService.DeleteStudentUserAsync(id);
+        return await _studentRepository.DeleteAsync(id);
+    }
 
     private static StudentDto Map(Student entity)
         => new()

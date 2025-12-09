@@ -1,5 +1,6 @@
 using System.Linq;
 using Ideageek.Examiner.Core.Entities;
+using Ideageek.Examiner.Core.Helpers;
 using Microsoft.Extensions.Logging;
 using SqlKata.Execution;
 
@@ -8,6 +9,8 @@ namespace Ideageek.Examiner.Core.DataSeeder;
 public class DataSeeder : IDataSeeder
 {
     private static readonly Guid DefaultDemoExamId = Guid.Parse("A9E7DC13-C9F7-44B0-9D13-148771AB0B1B");
+    private const string SuperAdminUsername = "superadmin";
+    private const string SuperAdminPassword = "SuperAdmin@123";
 
     private readonly QueryFactory _queryFactory;
     private readonly ILogger<DataSeeder> _logger;
@@ -23,6 +26,7 @@ public class DataSeeder : IDataSeeder
         try
         {
             _logger.LogInformation("Examiner data seeder starting");
+            await EnsureSuperAdminAsync();
             var schoolId = await EnsureSchoolAsync();
             var classes = await EnsureClassesAsync(schoolId);
             var students = await EnsureStudentsAsync(schoolId, classes);
@@ -116,6 +120,7 @@ public class DataSeeder : IDataSeeder
             if (existing is not null)
             {
                 result[student.Key] = existing.Id;
+                await EnsureStudentUserAsync(existing.Id, existing.StudentNumber);
                 continue;
             }
 
@@ -132,9 +137,53 @@ public class DataSeeder : IDataSeeder
             });
 
             result[student.Key] = id;
+            await EnsureStudentUserAsync(id, student.Number);
         }
 
         return result;
+    }
+
+    private async Task EnsureSuperAdminAsync()
+    {
+        var user = await _queryFactory.Query("UserAccount")
+            .Where("Username", SuperAdminUsername)
+            .FirstOrDefaultAsync<UserAccount>();
+
+        if (user is not null)
+        {
+            return;
+        }
+
+        await _queryFactory.Query("UserAccount").InsertAsync(new
+        {
+            Id = Guid.NewGuid(),
+            Username = SuperAdminUsername,
+            PasswordHash = PasswordHasher.Hash(SuperAdminPassword),
+            Role = "SuperAdmin",
+            CreatedAt = DateTime.UtcNow
+        });
+    }
+
+    private async Task EnsureStudentUserAsync(Guid studentId, string studentNumber)
+    {
+        var existing = await _queryFactory.Query("UserAccount")
+            .Where("StudentId", studentId)
+            .FirstOrDefaultAsync<UserAccount>();
+
+        if (existing is not null)
+        {
+            return;
+        }
+
+        await _queryFactory.Query("UserAccount").InsertAsync(new
+        {
+            Id = Guid.NewGuid(),
+            Username = studentNumber,
+            PasswordHash = PasswordHasher.Hash(studentNumber),
+            Role = "Student",
+            StudentId = studentId,
+            CreatedAt = DateTime.UtcNow
+        });
     }
 
     private async Task<Guid> EnsureExamAsync(Guid schoolId, Guid classId)

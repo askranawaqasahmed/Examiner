@@ -1,10 +1,12 @@
 using Ideageek.Examiner.Core.Dtos;
 using Ideageek.Examiner.Core.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Ideageek.Examiner.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/students")]
 public class StudentController : ControllerBase
 {
@@ -33,8 +35,15 @@ public class StudentController : ControllerBase
     [HttpPost]
     public async Task<ActionResult> Create([FromBody] StudentRequestDto request)
     {
-        var id = await _studentService.CreateAsync(request);
-        return CreatedAtAction(nameof(GetById), new { id }, null);
+        try
+        {
+            var id = await _studentService.CreateAsync(request);
+            return CreatedAtAction(nameof(GetById), new { id }, null);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     [HttpPut("{id:guid}")]

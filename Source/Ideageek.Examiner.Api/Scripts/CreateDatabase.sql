@@ -55,6 +55,23 @@ BEGIN
 END
 GO
 
+-- UserAccount table
+IF OBJECT_ID(N'dbo.UserAccount', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.UserAccount
+    (
+        Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+        Username NVARCHAR(100) NOT NULL UNIQUE,
+        PasswordHash NVARCHAR(500) NOT NULL,
+        Role NVARCHAR(50) NOT NULL,
+        StudentId UNIQUEIDENTIFIER NULL,
+        TeacherId UNIQUEIDENTIFIER NULL,
+        CreatedAt DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
+        CONSTRAINT FK_UserAccount_Student FOREIGN KEY (StudentId) REFERENCES dbo.Student(Id)
+    );
+END
+GO
+
 -- Exam table
 IF OBJECT_ID(N'dbo.Exam', N'U') IS NULL
 BEGIN
@@ -186,6 +203,27 @@ IF NOT EXISTS (SELECT 1 FROM dbo.Student WHERE StudentNumber = N'STD-0002')
 BEGIN
     INSERT INTO dbo.Student (Id, SchoolId, ClassId, StudentNumber, FirstName, LastName)
     VALUES (NEWID(), @SchoolId, @ClassGrade9, N'STD-0002', N'Sara', N'Ahmed');
+END
+
+DECLARE @Student1 UNIQUEIDENTIFIER = (SELECT TOP 1 Id FROM dbo.Student WHERE StudentNumber = N'STD-0001');
+DECLARE @Student2 UNIQUEIDENTIFIER = (SELECT TOP 1 Id FROM dbo.Student WHERE StudentNumber = N'STD-0002');
+
+IF NOT EXISTS (SELECT 1 FROM dbo.UserAccount WHERE Username = N'superadmin')
+BEGIN
+    INSERT INTO dbo.UserAccount (Id, Username, PasswordHash, Role, CreatedAt)
+    VALUES (NEWID(), N'superadmin', N'Zg09VMUr6OJJb9j6NlZHHQ==.LDxkywTIiyBIhBWl93Tgs69wrEASuEvLb8DnVKFo6cE=', N'SuperAdmin', SYSDATETIME());
+END
+
+IF @Student1 IS NOT NULL AND NOT EXISTS (SELECT 1 FROM dbo.UserAccount WHERE StudentId = @Student1)
+BEGIN
+    INSERT INTO dbo.UserAccount (Id, Username, PasswordHash, Role, StudentId, CreatedAt)
+    VALUES (NEWID(), N'STD-0001', N'iOXrr7D45agLnt4/d4fYgQ==.gVmXS+PfTLwsWw0Wv3Vc13mIMyRb7pcOKxG/gCLutjg=', N'Student', @Student1, SYSDATETIME());
+END
+
+IF @Student2 IS NOT NULL AND NOT EXISTS (SELECT 1 FROM dbo.UserAccount WHERE StudentId = @Student2)
+BEGIN
+    INSERT INTO dbo.UserAccount (Id, Username, PasswordHash, Role, StudentId, CreatedAt)
+    VALUES (NEWID(), N'STD-0002', N'nwFlr0fNpcZorZ7KJySf5g==.RXVTSYtIuafGpEiE+NN21gsxC31cYHacmKY1B6o7tTM=', N'Student', @Student2, SYSDATETIME());
 END
 
 DECLARE @ExamId UNIQUEIDENTIFIER = 'A9E7DC13-C9F7-44B0-9D13-148771AB0B1B';

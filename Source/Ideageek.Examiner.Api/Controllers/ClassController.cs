@@ -1,10 +1,12 @@
 using Ideageek.Examiner.Core.Dtos;
 using Ideageek.Examiner.Core.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Ideageek.Examiner.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/classes")]
 public class ClassController : ControllerBase
 {
