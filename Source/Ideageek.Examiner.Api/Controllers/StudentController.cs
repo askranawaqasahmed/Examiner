@@ -46,14 +46,14 @@ public class StudentController : ControllerBase
         }
     }
 
-    [HttpPut("{id:guid}")]
+    [HttpPost("{id:guid}/update")]
     public async Task<ActionResult> Update(Guid id, [FromBody] StudentRequestDto request)
     {
         var updated = await _studentService.UpdateAsync(id, request);
         return updated ? NoContent() : NotFound();
     }
 
-    [HttpDelete("{id:guid}")]
+    [HttpPost("{id:guid}/delete")]
     public async Task<ActionResult> Delete(Guid id)
     {
         var deleted = await _studentService.DeleteAsync(id);

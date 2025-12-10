@@ -28,14 +28,14 @@ public class QuestionController : ControllerBase
         return Created(string.Empty, new { id });
     }
 
-    [HttpPut("{id:guid}")]
+    [HttpPost("{id:guid}/update")]
     public async Task<ActionResult> Update(Guid id, [FromBody] QuestionRequestDto request)
     {
         var updated = await _questionService.UpdateAsync(id, request);
         return updated ? NoContent() : NotFound();
     }
 
-    [HttpDelete("{id:guid}")]
+    [HttpPost("{id:guid}/delete")]
     public async Task<ActionResult> Delete(Guid id)
     {
         var deleted = await _questionService.DeleteAsync(id);

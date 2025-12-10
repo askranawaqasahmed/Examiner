@@ -39,14 +39,14 @@ public class ExamController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id }, null);
     }
 
-    [HttpPut("{id:guid}")]
+    [HttpPost("{id:guid}/update")]
     public async Task<ActionResult> Update(Guid id, [FromBody] ExamRequestDto request)
     {
         var updated = await _examService.UpdateAsync(id, request);
         return updated ? NoContent() : NotFound();
     }
 
-    [HttpDelete("{id:guid}")]
+    [HttpPost("{id:guid}/delete")]
     public async Task<ActionResult> Delete(Guid id)
     {
         var deleted = await _examService.DeleteAsync(id);

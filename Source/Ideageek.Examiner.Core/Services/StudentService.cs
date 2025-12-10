@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Ideageek.Examiner.Core.Dtos;
 using Ideageek.Examiner.Core.Entities;
 using Ideageek.Examiner.Core.Repositories.Interfaces;
@@ -10,30 +12,48 @@ public class StudentService : IStudentService
 {
     private readonly IStudentRepository _studentRepository;
     private readonly IUserService _userService;
+    private readonly ISchoolRepository _schoolRepository;
+    private readonly IClassRepository _classRepository;
 
-    public StudentService(IStudentRepository studentRepository, IUserService userService)
+    public StudentService(
+        IStudentRepository studentRepository,
+        IUserService userService,
+        ISchoolRepository schoolRepository,
+        IClassRepository classRepository)
     {
         _studentRepository = studentRepository;
         _userService = userService;
+        _schoolRepository = schoolRepository;
+        _classRepository = classRepository;
     }
 
     public async Task<IEnumerable<StudentDto>> GetAllAsync()
-        => (await _studentRepository.GetAllAsync()).Select(Map);
+    {
+        var entities = (await _studentRepository.GetAllAsync()).ToList();
+        var schoolLookup = await BuildSchoolLookupAsync(entities.Select(e => e.SchoolId));
+        var classLookup = await BuildClassLookupAsync(entities.Select(e => e.ClassId));
+        return entities.Select(entity => Map(entity, schoolLookup, classLookup));
+    }
 
     public async Task<StudentDto?> GetByIdAsync(Guid id)
     {
         var entity = await _studentRepository.GetByIdAsync(id);
-        return entity is null ? null : Map(entity);
+        return entity is null ? null : await MapWithNamesAsync(entity);
     }
 
     public async Task<StudentDto?> GetByStudentNumberAsync(string studentNumber)
     {
         var entity = await _studentRepository.GetByStudentNumberAsync(studentNumber);
-        return entity is null ? null : Map(entity);
+        return entity is null ? null : await MapWithNamesAsync(entity);
     }
 
     public async Task<IEnumerable<StudentDto>> GetByClassAsync(Guid classId)
-        => (await _studentRepository.GetByClassAsync(classId)).Select(Map);
+    {
+        var entities = (await _studentRepository.GetByClassAsync(classId)).ToList();
+        var schoolLookup = await BuildSchoolLookupAsync(entities.Select(e => e.SchoolId));
+        var classLookup = await BuildClassLookupAsync(entities.Select(e => e.ClassId));
+        return entities.Select(entity => Map(entity, schoolLookup, classLookup));
+    }
 
     public async Task<Guid> CreateAsync(StudentRequestDto request)
     {
@@ -89,7 +109,21 @@ public class StudentService : IStudentService
         return await _studentRepository.DeleteAsync(id);
     }
 
-    private static StudentDto Map(Student entity)
+    private async Task<StudentDto> MapWithNamesAsync(Student entity)
+    {
+        var schoolName = (await _schoolRepository.GetByIdAsync(entity.SchoolId))?.Name ?? string.Empty;
+        var className = (await _classRepository.GetByIdAsync(entity.ClassId))?.Name ?? string.Empty;
+        return Map(entity, schoolName, className);
+    }
+
+    private static StudentDto Map(Student entity, IReadOnlyDictionary<Guid, string> schoolLookup, IReadOnlyDictionary<Guid, string> classLookup)
+    {
+        var schoolName = schoolLookup.TryGetValue(entity.SchoolId, out var school) ? school : string.Empty;
+        var className = classLookup.TryGetValue(entity.ClassId, out var cls) ? cls : string.Empty;
+        return Map(entity, schoolName, className);
+    }
+
+    private static StudentDto Map(Student entity, string schoolName, string className)
         => new()
         {
             Id = entity.Id,
@@ -97,6 +131,32 @@ public class StudentService : IStudentService
             ClassId = entity.ClassId,
             StudentNumber = entity.StudentNumber,
             FirstName = entity.FirstName,
-            LastName = entity.LastName
+            LastName = entity.LastName,
+            SchoolName = schoolName,
+            ClassName = className
         };
+
+    private async Task<Dictionary<Guid, string>> BuildSchoolLookupAsync(IEnumerable<Guid> schoolIds)
+    {
+        var uniqueIds = schoolIds.Where(id => id != Guid.Empty).Distinct().ToList();
+        if (uniqueIds.Count == 0)
+        {
+            return new Dictionary<Guid, string>();
+        }
+
+        var schools = await _schoolRepository.GetByIdsAsync(uniqueIds);
+        return schools.ToDictionary(s => s.Id, s => s.Name);
+    }
+
+    private async Task<Dictionary<Guid, string>> BuildClassLookupAsync(IEnumerable<Guid> classIds)
+    {
+        var uniqueIds = classIds.Where(id => id != Guid.Empty).Distinct().ToList();
+        if (uniqueIds.Count == 0)
+        {
+            return new Dictionary<Guid, string>();
+        }
+
+        var classes = await _classRepository.GetByIdsAsync(uniqueIds);
+        return classes.ToDictionary(c => c.Id, c => c.Name);
+    }
 }

@@ -10,6 +10,8 @@ public class ExamDto
     public int TotalMarks { get; set; }
     public int QuestionCount { get; set; }
     public DateTime? ExamDate { get; set; }
+    public string SchoolName { get; set; } = string.Empty;
+    public string ClassName { get; set; } = string.Empty;
 }
 
 public class ExamRequestDto

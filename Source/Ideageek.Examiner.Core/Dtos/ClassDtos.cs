@@ -6,6 +6,7 @@ public class ClassDto
     public Guid SchoolId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? Section { get; set; }
+    public string SchoolName { get; set; } = string.Empty;
 }
 
 public class ClassRequestDto

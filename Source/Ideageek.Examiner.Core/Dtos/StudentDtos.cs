@@ -8,6 +8,8 @@ public class StudentDto
     public string StudentNumber { get; set; } = string.Empty;
     public string FirstName { get; set; } = string.Empty;
     public string? LastName { get; set; }
+    public string SchoolName { get; set; } = string.Empty;
+    public string ClassName { get; set; } = string.Empty;
 }
 
 public class StudentRequestDto

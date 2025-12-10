@@ -39,14 +39,14 @@ public class ClassController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id }, null);
     }
 
-    [HttpPut("{id:guid}")]
+    [HttpPost("{id:guid}/update")]
     public async Task<ActionResult> Update(Guid id, [FromBody] ClassRequestDto request)
     {
         var updated = await _classService.UpdateAsync(id, request);
         return updated ? NoContent() : NotFound();
     }
 
-    [HttpDelete("{id:guid}")]
+    [HttpPost("{id:guid}/delete")]
     public async Task<ActionResult> Delete(Guid id)
     {
         var deleted = await _classService.DeleteAsync(id);
