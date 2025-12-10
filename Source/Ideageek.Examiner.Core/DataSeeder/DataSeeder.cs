@@ -9,7 +9,7 @@ namespace Ideageek.Examiner.Core.DataSeeder;
 public class DataSeeder : IDataSeeder
 {
     private static readonly Guid DefaultDemoExamId = Guid.Parse("A9E7DC13-C9F7-44B0-9D13-148771AB0B1B");
-    private const string SuperAdminUsername = "superadmin";
+    private const string SuperAdminUsername = "superadmin@examiner.com";
     private const string SuperAdminPassword = "SuperAdmin@123";
 
     private readonly QueryFactory _queryFactory;

@@ -208,10 +208,10 @@ END
 DECLARE @Student1 UNIQUEIDENTIFIER = (SELECT TOP 1 Id FROM dbo.Student WHERE StudentNumber = N'STD-0001');
 DECLARE @Student2 UNIQUEIDENTIFIER = (SELECT TOP 1 Id FROM dbo.Student WHERE StudentNumber = N'STD-0002');
 
-IF NOT EXISTS (SELECT 1 FROM dbo.UserAccount WHERE Username = N'superadmin')
+IF NOT EXISTS (SELECT 1 FROM dbo.UserAccount WHERE Username = N'superadmin@examiner.com')
 BEGIN
     INSERT INTO dbo.UserAccount (Id, Username, PasswordHash, Role, CreatedAt)
-    VALUES (NEWID(), N'superadmin', N'Zg09VMUr6OJJb9j6NlZHHQ==.LDxkywTIiyBIhBWl93Tgs69wrEASuEvLb8DnVKFo6cE=', N'SuperAdmin', SYSDATETIME());
+    VALUES (NEWID(), N'superadmin@examiner.com', N'Zg09VMUr6OJJb9j6NlZHHQ==.LDxkywTIiyBIhBWl93Tgs69wrEASuEvLb8DnVKFo6cE=', N'SuperAdmin', SYSDATETIME());
 END
 
 IF @Student1 IS NOT NULL AND NOT EXISTS (SELECT 1 FROM dbo.UserAccount WHERE StudentId = @Student1)

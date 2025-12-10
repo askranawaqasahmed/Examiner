@@ -54,3 +54,34 @@ public class DummySheetEvaluationDetailDto
     public bool IsCorrect { get; set; }
     public int Marks { get; set; }
 }
+
+public class QuestionSheetTemplateResponseDto
+{
+    public Guid ExamId { get; set; }
+    public string ExamName { get; set; } = string.Empty;
+    public int QuestionCount { get; set; }
+    public QuestionSheetTemplateMetadataDto Template { get; set; } = new();
+    public IReadOnlyCollection<QuestionSheetTemplateQuestionDto> Questions { get; set; } = Array.Empty<QuestionSheetTemplateQuestionDto>();
+}
+
+public class QuestionSheetTemplateMetadataDto
+{
+    public string Name { get; set; } = "Default";
+    public int OptionsPerQuestion { get; set; }
+}
+
+public class QuestionSheetTemplateQuestionDto
+{
+    public Guid Id { get; set; }
+    public int QuestionNumber { get; set; }
+    public string Text { get; set; } = string.Empty;
+    public IReadOnlyCollection<QuestionSheetTemplateOptionDto> Options { get; set; } = Array.Empty<QuestionSheetTemplateOptionDto>();
+    public string CorrectOption { get; set; } = string.Empty;
+}
+
+public class QuestionSheetTemplateOptionDto
+{
+    public string Key { get; set; } = string.Empty;
+    public string Text { get; set; } = string.Empty;
+    public int Order { get; set; }
+}
