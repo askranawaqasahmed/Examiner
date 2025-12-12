@@ -17,4 +17,10 @@
     <ProjectReference Include="..\\Ideageek.Examiner.Core\\Ideageek.Examiner.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="Scripts\\main.py">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>

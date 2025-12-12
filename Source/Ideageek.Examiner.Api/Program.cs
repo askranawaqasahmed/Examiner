@@ -1,3 +1,4 @@
+using System.IO;
 using System.Text;
 using Ideageek.Examiner.Api.Helpers;
 using Ideageek.Examiner.Api.Options;
@@ -27,6 +28,19 @@ var connectionString = builder.Configuration.GetConnectionString("ExaminerDb")
 
 builder.Services.Configure<DatabaseOptions>(options => options.ConnectionString = connectionString);
 builder.Services.Configure<DefaultSheetOptions>(builder.Configuration.GetSection("DefaultSheet"));
+builder.Services.Configure<QuestionSheetGenerationOptions>(options =>
+{
+    options.ScriptPath = Path.Combine(builder.Environment.ContentRootPath, "Scripts", "main.py");
+    options.DocumentsFolder = Path.Combine(builder.Environment.WebRootPath, "Documents", "Exam");
+    options.DocumentsUrlPrefix = "/Documents/Exam";
+});
+builder.Services.Configure<AutoAuthOptions>(options =>
+{
+    options.Username = "superadmin@examiner.com";
+    options.Password = "SuperAdmin@123";
+    options.CookieName = "ExaminerAuth";
+    options.SetCookie = true;
+});
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 builder.Services.AddSingleton<IDbConnectionFactory, DbConnectionFactory>();
 builder.Services.AddSingleton<SqlServerCompiler>();
@@ -51,6 +65,7 @@ builder.Services.AddScoped<IClassRepository, ClassRepository>();
 builder.Services.AddScoped<IStudentRepository, StudentRepository>();
 builder.Services.AddScoped<IExamRepository, ExamRepository>();
 builder.Services.AddScoped<IQuestionRepository, QuestionRepository>();
+builder.Services.AddScoped<IQuestionOptionRepository, QuestionOptionRepository>();
 builder.Services.AddScoped<IAnswerSheetRepository, AnswerSheetRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IQuestionSheetTemplateRepository, QuestionSheetTemplateRepository>();
@@ -140,8 +155,26 @@ builder.Services.AddAuthentication(options =>
 
 var app = builder.Build();
 
+app.UseStaticFiles();
+
+app.MapGet("/swagger-autologin.js", async context =>
+{
+    var filePath = Path.Combine(builder.Environment.WebRootPath, "swagger-autologin.js");
+    if (!File.Exists(filePath))
+    {
+        context.Response.StatusCode = StatusCodes.Status404NotFound;
+        return;
+    }
+
+    context.Response.ContentType = "application/javascript";
+    await context.Response.SendFileAsync(filePath);
+});
+
 app.UseSwagger();
-app.UseSwaggerUI();
+app.UseSwaggerUI(options =>
+{
+    options.InjectJavascript("/swagger-autologin.js");
+});
 
 app.UseHttpsRedirection();
 app.UseCors("AllowAll");

@@ -86,9 +86,23 @@ BEGIN
         QuestionCount INT NOT NULL,
         ExamDate DATETIME2 NULL,
         CreatedAt DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
+        QuestionSheetFileName NVARCHAR(400) NULL,
+        AnswerSheetFileName NVARCHAR(400) NULL,
         CONSTRAINT FK_Exam_School FOREIGN KEY (SchoolId) REFERENCES dbo.School(Id),
         CONSTRAINT FK_Exam_Class FOREIGN KEY (ClassId) REFERENCES dbo.Class(Id)
     );
+END
+GO
+
+IF COL_LENGTH(N'dbo.Exam', N'QuestionSheetFileName') IS NULL
+BEGIN
+    ALTER TABLE dbo.Exam ADD QuestionSheetFileName NVARCHAR(400) NULL;
+END
+GO
+
+IF COL_LENGTH(N'dbo.Exam', N'AnswerSheetFileName') IS NULL
+BEGIN
+    ALTER TABLE dbo.Exam ADD AnswerSheetFileName NVARCHAR(400) NULL;
 END
 GO
 
@@ -101,12 +115,47 @@ BEGIN
         ExamId UNIQUEIDENTIFIER NOT NULL,
         QuestionNumber INT NOT NULL,
         Text NVARCHAR(500) NOT NULL,
-        OptionA NVARCHAR(200) NOT NULL,
-        OptionB NVARCHAR(200) NOT NULL,
-        OptionC NVARCHAR(200) NOT NULL,
-        OptionD NVARCHAR(200) NOT NULL,
         CorrectOption CHAR(1) NOT NULL,
         CONSTRAINT FK_Question_Exam FOREIGN KEY (ExamId) REFERENCES dbo.Exam(Id)
+    );
+END
+GO
+
+IF COL_LENGTH(N'dbo.Question', N'OptionA') IS NOT NULL
+BEGIN
+    ALTER TABLE dbo.Question DROP COLUMN OptionA;
+END
+GO
+
+IF COL_LENGTH(N'dbo.Question', N'OptionB') IS NOT NULL
+BEGIN
+    ALTER TABLE dbo.Question DROP COLUMN OptionB;
+END
+GO
+
+IF COL_LENGTH(N'dbo.Question', N'OptionC') IS NOT NULL
+BEGIN
+    ALTER TABLE dbo.Question DROP COLUMN OptionC;
+END
+GO
+
+IF COL_LENGTH(N'dbo.Question', N'OptionD') IS NOT NULL
+BEGIN
+    ALTER TABLE dbo.Question DROP COLUMN OptionD;
+END
+GO
+
+-- QuestionOption table
+IF OBJECT_ID(N'dbo.QuestionOption', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.QuestionOption
+    (
+        Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+        QuestionId UNIQUEIDENTIFIER NOT NULL,
+        [Key] NVARCHAR(10) NOT NULL,
+        Text NVARCHAR(500) NOT NULL,
+        [Order] INT NOT NULL,
+        CONSTRAINT FK_QuestionOption_Question FOREIGN KEY (QuestionId) REFERENCES dbo.Question(Id)
     );
 END
 GO
@@ -231,17 +280,6 @@ IF NOT EXISTS (SELECT 1 FROM dbo.Exam WHERE Id = @ExamId)
 BEGIN
     INSERT INTO dbo.Exam (Id, SchoolId, ClassId, Name, Subject, TotalMarks, QuestionCount, ExamDate)
     VALUES (@ExamId, @SchoolId, @ClassGrade8, N'Demo MCQ Test', N'Mathematics', 10, 10, SYSDATETIME());
-END
-
-IF NOT EXISTS (SELECT 1 FROM dbo.Question WHERE ExamId = @ExamId)
-BEGIN
-    DECLARE @Counter INT = 1;
-    WHILE @Counter <= 10
-    BEGIN
-        INSERT INTO dbo.Question (Id, ExamId, QuestionNumber, Text, OptionA, OptionB, OptionC, OptionD, CorrectOption)
-        VALUES (NEWID(), @ExamId, @Counter, CONCAT(N'Question ', @Counter), N'Option A', N'Option B', N'Option C', N'Option D', CASE WHEN @Counter % 2 = 0 THEN 'B' ELSE 'A' END);
-        SET @Counter += 1;
-    END
 END
 
 IF NOT EXISTS (SELECT 1 FROM dbo.QuestionSheetTemplate WHERE ExamId = @ExamId AND Name = N'Default OMR Template')

@@ -1,8 +1,11 @@
 using Ideageek.Examiner.Api.Helpers;
 using Ideageek.Examiner.Core.Dtos;
+using Ideageek.Examiner.Core.Options;
 using Ideageek.Examiner.Core.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace Ideageek.Examiner.Api.Controllers;
 
@@ -12,24 +15,72 @@ public class AuthController : ControllerBase
 {
     private readonly IUserService _userService;
     private readonly IJwtTokenGenerator _jwtTokenGenerator;
+    private readonly AutoAuthOptions _autoAuthOptions;
 
-    public AuthController(IUserService userService, IJwtTokenGenerator jwtTokenGenerator)
+    public AuthController(IUserService userService, IJwtTokenGenerator jwtTokenGenerator, IOptions<AutoAuthOptions> autoAuthOptions)
     {
         _userService = userService;
         _jwtTokenGenerator = jwtTokenGenerator;
+        _autoAuthOptions = autoAuthOptions.Value;
     }
 
     [AllowAnonymous]
     [HttpPost("login")]
     public async Task<ActionResult<AuthResponseDto>> Login([FromBody] LoginRequestDto request)
     {
-        var user = await _userService.ValidateCredentialsAsync(request.Username, request.Password);
-        if (user is null)
+        var response = await AuthenticateAsync(request.Username, request.Password);
+        if (response is null)
         {
             return Unauthorized();
         }
 
-        var token = _jwtTokenGenerator.GenerateToken(user);
-        return Ok(token);
+        AppendAuthCookie(response.Token, response.ExpiresAt);
+        return Ok(response);
+    }
+
+    [AllowAnonymous]
+    [HttpGet("refresh-token")]
+    public async Task<ActionResult<AuthResponseDto>> RefreshToken()
+    {
+        if (string.IsNullOrWhiteSpace(_autoAuthOptions.Username) || string.IsNullOrWhiteSpace(_autoAuthOptions.Password))
+        {
+            return BadRequest("Auto-login credentials are not configured.");
+        }
+
+        var response = await AuthenticateAsync(_autoAuthOptions.Username, _autoAuthOptions.Password);
+        if (response is null)
+        {
+            return Unauthorized();
+        }
+
+        AppendAuthCookie(response.Token, response.ExpiresAt);
+        return Ok(response);
+    }
+
+    private async Task<AuthResponseDto?> AuthenticateAsync(string username, string password)
+    {
+        var user = await _userService.ValidateCredentialsAsync(username, password);
+        if (user is null)
+        {
+            return null;
+        }
+
+        return _jwtTokenGenerator.GenerateToken(user);
+    }
+
+    private void AppendAuthCookie(string token, DateTime expiresAt)
+    {
+        if (!_autoAuthOptions.SetCookie || string.IsNullOrWhiteSpace(_autoAuthOptions.CookieName))
+        {
+            return;
+        }
+
+        Response.Cookies.Append(_autoAuthOptions.CookieName, token, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.Strict,
+            Expires = expiresAt
+        });
     }
 }

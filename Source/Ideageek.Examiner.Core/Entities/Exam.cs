@@ -11,4 +11,6 @@ public class Exam : IEntity
     public int QuestionCount { get; set; }
     public DateTime? ExamDate { get; set; }
     public DateTime CreatedAt { get; set; }
+    public string? QuestionSheetFileName { get; set; }
+    public string? AnswerSheetFileName { get; set; }
 }

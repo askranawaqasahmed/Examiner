@@ -15,15 +15,13 @@ public class DummyQuestionSheetQuestionDto
 {
     public int QuestionNumber { get; set; }
     public string Text { get; set; } = string.Empty;
-    public DummyQuestionSheetQuestionOptionsDto Options { get; set; } = new();
+    public IReadOnlyCollection<DummyQuestionSheetQuestionOptionDto> Options { get; set; } = Array.Empty<DummyQuestionSheetQuestionOptionDto>();
 }
 
-public class DummyQuestionSheetQuestionOptionsDto
+public class DummyQuestionSheetQuestionOptionDto
 {
-    public string A { get; set; } = string.Empty;
-    public string B { get; set; } = string.Empty;
-    public string C { get; set; } = string.Empty;
-    public string D { get; set; } = string.Empty;
+    public string Key { get; set; } = string.Empty;
+    public string Text { get; set; } = string.Empty;
 }
 
 public class DummySheetEvaluationRequestDto
@@ -67,13 +65,13 @@ public class QuestionSheetTemplateResponseDto
 public class QuestionSheetTemplateMetadataDto
 {
     public string Name { get; set; } = "Default";
-    public int OptionsPerQuestion { get; set; }
 }
 
 public class QuestionSheetTemplateQuestionDto
 {
     public Guid Id { get; set; }
     public int QuestionNumber { get; set; }
+    public int OptionsPerQuestion { get; set; }
     public string Text { get; set; } = string.Empty;
     public IReadOnlyCollection<QuestionSheetTemplateOptionDto> Options { get; set; } = Array.Empty<QuestionSheetTemplateOptionDto>();
     public string CorrectOption { get; set; } = string.Empty;
@@ -84,4 +82,45 @@ public class QuestionSheetTemplateOptionDto
     public string Key { get; set; } = string.Empty;
     public string Text { get; set; } = string.Empty;
     public int Order { get; set; }
+}
+
+public class QuestionSheetGenerationResponseDto
+{
+    public string FileName { get; set; } = string.Empty;
+    public string Url { get; set; } = string.Empty;
+}
+
+public class QuestionSheetAnswerResponseDto
+{
+    public Guid ExamId { get; set; }
+    public string ExamName { get; set; } = string.Empty;
+    public int QuestionCount { get; set; }
+    public IReadOnlyCollection<QuestionSheetAnswerQuestionDto> Questions { get; set; } = Array.Empty<QuestionSheetAnswerQuestionDto>();
+}
+
+public class QuestionSheetAnswerQuestionDto
+{
+    public int QuestionNumber { get; set; }
+    public int OptionCount { get; set; }
+    public string OptionLabelSet { get; set; } = string.Empty;
+}
+
+public class CalculateScoreResponseDto
+{
+    public Guid ExamId { get; set; }
+    public string ExamName { get; set; } = string.Empty;
+    public string StudentId { get; set; } = string.Empty;
+    public int QuestionCount { get; set; }
+    public int CorrectCount { get; set; }
+    public int WrongCount { get; set; }
+    public string? EvaluationError { get; set; }
+    public IReadOnlyCollection<CalculateScoreEvaluationDetailDto> Details { get; set; } = Array.Empty<CalculateScoreEvaluationDetailDto>();
+}
+
+public class CalculateScoreEvaluationDetailDto
+{
+    public int QuestionNumber { get; set; }
+    public string CorrectOption { get; set; } = string.Empty;
+    public string SelectedOption { get; set; } = string.Empty;
+    public bool IsCorrect { get; set; }
 }
