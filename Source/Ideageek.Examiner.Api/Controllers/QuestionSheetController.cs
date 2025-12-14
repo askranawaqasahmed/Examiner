@@ -29,15 +29,29 @@ public class QuestionSheetController : ControllerBase
     [HttpGet("generate-question-sheet/{examId:guid}")]
     public async Task<ActionResult<QuestionSheetGenerationResponseDto>> GenerateQuestionSheet(Guid examId)
     {
-        var result = await _questionSheetService.GenerateQuestionSheetAsync(examId);
-        return BuildGenerationResponse(result);
+        try
+        {
+            var result = await _questionSheetService.GenerateQuestionSheetAsync(examId);
+            return BuildGenerationResponse(result);
+        }
+        catch (Exception ex)
+        {
+            return BuildExceptionResponse(ex);
+        }
     }
 
     [HttpGet("generate-answer-sheet/{examId:guid}")]
     public async Task<ActionResult<QuestionSheetGenerationResponseDto>> GenerateAnswerSheet(Guid examId)
     {
-        var result = await _questionSheetService.GenerateAnswerSheetAsync(examId);
-        return BuildGenerationResponse(result);
+        try
+        {
+            var result = await _questionSheetService.GenerateAnswerSheetAsync(examId);
+            return BuildGenerationResponse(result);
+        }
+        catch (Exception ex)
+        {
+            return BuildExceptionResponse(ex);
+        }
     }
 
     [HttpPost("{examId:guid}/calculate-score")]
@@ -58,12 +72,19 @@ public class QuestionSheetController : ControllerBase
         }
 
         await using var sheetStream = answerSheet.OpenReadStream();
-        var result = await _questionSheetService.CalculateScoreAsync(
-            examId,
-            studentId.Trim(),
-            sheetStream,
-            answerSheet.FileName);
-        return result is null ? NotFound() : Ok(result);
+        try
+        {
+            var result = await _questionSheetService.CalculateScoreAsync(
+                examId,
+                studentId.Trim(),
+                sheetStream,
+                answerSheet.FileName);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (Exception ex)
+        {
+            return BuildExceptionResponse(ex);
+        }
     }
 
     private ActionResult<QuestionSheetGenerationResponseDto> BuildGenerationResponse(QuestionSheetGenerationResponseDto? result)
@@ -75,6 +96,15 @@ public class QuestionSheetController : ControllerBase
 
         result.Url = BuildAbsoluteDocumentUrl(result.Url, result.FileName);
         return Ok(result);
+    }
+
+    private ObjectResult BuildExceptionResponse(Exception ex)
+    {
+        return StatusCode(StatusCodes.Status500InternalServerError, new
+        {
+            error = ex.Message,
+            exception = ex.ToString()
+        });
     }
 
     private string BuildAbsoluteDocumentUrl(string? url, string fileName)
@@ -99,7 +129,14 @@ public class QuestionSheetController : ControllerBase
 
     private async Task<ActionResult<QuestionSheetTemplateResponseDto>> HandleQuestionSheetTemplateRequestAsync(Guid examId)
     {
-        var result = await _questionSheetService.GetTemplateAsync(examId);
-        return result is null ? NotFound() : Ok(result);
+        try
+        {
+            var result = await _questionSheetService.GetTemplateAsync(examId);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (Exception ex)
+        {
+            return BuildExceptionResponse(ex);
+        }
     }
 }
