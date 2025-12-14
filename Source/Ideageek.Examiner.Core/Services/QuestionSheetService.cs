@@ -329,7 +329,17 @@ public class QuestionSheetService : IQuestionSheetService
 
         try
         {
-            var startInfo = new ProcessStartInfo("python")
+            var pythonPath = string.IsNullOrWhiteSpace(_generationOptions.PythonPath)
+                ? "python"
+                : _generationOptions.PythonPath;
+
+            if ((pythonPath.Contains(Path.DirectorySeparatorChar) || pythonPath.Contains(Path.AltDirectorySeparatorChar)) &&
+                !File.Exists(pythonPath))
+            {
+                throw new FileNotFoundException("Configured Python executable not found.", pythonPath);
+            }
+
+            var startInfo = new ProcessStartInfo(pythonPath)
             {
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,

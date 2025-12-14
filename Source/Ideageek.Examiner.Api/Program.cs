@@ -30,6 +30,8 @@ builder.Services.Configure<DatabaseOptions>(options => options.ConnectionString 
 builder.Services.Configure<DefaultSheetOptions>(builder.Configuration.GetSection("DefaultSheet"));
 builder.Services.Configure<QuestionSheetGenerationOptions>(options =>
 {
+    var pythonPath = builder.Configuration.GetValue<string>("AppSettings:PythonPath");
+    options.PythonPath = string.IsNullOrWhiteSpace(pythonPath) ? "python" : pythonPath;
     options.ScriptPath = Path.Combine(builder.Environment.ContentRootPath, "Scripts", "main.py");
     options.DocumentsFolder = Path.Combine(builder.Environment.WebRootPath, "Documents", "Exam");
     options.DocumentsUrlPrefix = "/Documents/Exam";
