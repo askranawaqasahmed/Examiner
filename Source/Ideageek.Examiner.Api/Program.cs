@@ -1,3 +1,4 @@
+using System.Data;
 using System.IO;
 using System.Text;
 using Ideageek.Examiner.Api.Helpers;
@@ -46,10 +47,14 @@ builder.Services.Configure<AutoAuthOptions>(options =>
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 builder.Services.AddSingleton<IDbConnectionFactory, DbConnectionFactory>();
 builder.Services.AddSingleton<SqlServerCompiler>();
-builder.Services.AddScoped<QueryFactory>(sp =>
+builder.Services.AddScoped<IDbConnection>(sp =>
 {
     var factory = sp.GetRequiredService<IDbConnectionFactory>();
-    var connection = factory.CreateOpenConnectionAsync().GetAwaiter().GetResult();
+    return factory.CreateOpenConnectionAsync().GetAwaiter().GetResult();
+});
+builder.Services.AddScoped<QueryFactory>(sp =>
+{
+    var connection = sp.GetRequiredService<IDbConnection>();
     var compiler = sp.GetRequiredService<SqlServerCompiler>();
     var logger = sp.GetRequiredService<ILogger<QueryFactory>>();
     var queryFactory = new QueryFactory(connection, compiler)
@@ -157,6 +162,8 @@ builder.Services.AddAuthentication(options =>
 
 var app = builder.Build();
 
+app.UseHttpsRedirection();
+app.UseCors("AllowAll");
 app.UseStaticFiles();
 
 app.MapGet("/swagger-autologin.js", async context =>
@@ -178,8 +185,6 @@ app.UseSwaggerUI(options =>
     options.InjectJavascript("/swagger-autologin.js");
 });
 
-app.UseHttpsRedirection();
-app.UseCors("AllowAll");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
