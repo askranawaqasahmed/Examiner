@@ -30,14 +30,14 @@ public class QuestionSheetController : ControllerBase
     public async Task<ActionResult<QuestionSheetGenerationResponseDto>> GenerateQuestionSheet(Guid examId)
     {
         var result = await _questionSheetService.GenerateQuestionSheetAsync(examId);
-        return result is null ? NotFound() : Ok(result);
+        return BuildGenerationResponse(result);
     }
 
     [HttpGet("generate-answer-sheet/{examId:guid}")]
     public async Task<ActionResult<QuestionSheetGenerationResponseDto>> GenerateAnswerSheet(Guid examId)
     {
         var result = await _questionSheetService.GenerateAnswerSheetAsync(examId);
-        return result is null ? NotFound() : Ok(result);
+        return BuildGenerationResponse(result);
     }
 
     [HttpPost("{examId:guid}/calculate-score")]
@@ -64,6 +64,37 @@ public class QuestionSheetController : ControllerBase
             sheetStream,
             answerSheet.FileName);
         return result is null ? NotFound() : Ok(result);
+    }
+
+    private ActionResult<QuestionSheetGenerationResponseDto> BuildGenerationResponse(QuestionSheetGenerationResponseDto? result)
+    {
+        if (result is null)
+        {
+            return NotFound();
+        }
+
+        result.Url = BuildAbsoluteDocumentUrl(result.Url, result.FileName);
+        return Ok(result);
+    }
+
+    private string BuildAbsoluteDocumentUrl(string? url, string fileName)
+    {
+        var candidate = string.IsNullOrWhiteSpace(url) ? fileName : url;
+        if (string.IsNullOrWhiteSpace(candidate))
+        {
+            return string.Empty;
+        }
+
+        if (Uri.TryCreate(candidate, UriKind.Absolute, out var absoluteUri))
+        {
+            return absoluteUri.ToString();
+        }
+
+        var request = HttpContext.Request;
+        var baseUri = new Uri($"{request.Scheme}://{request.Host.ToUriComponent()}{request.PathBase}");
+        var normalizedPath = candidate.StartsWith("/") ? candidate : "/" + candidate;
+
+        return new Uri(baseUri, normalizedPath).ToString();
     }
 
     private async Task<ActionResult<QuestionSheetTemplateResponseDto>> HandleQuestionSheetTemplateRequestAsync(Guid examId)

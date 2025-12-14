@@ -539,7 +539,17 @@ public class QuestionSheetService : IQuestionSheetService
 
     private string BuildDocumentUrl(string fileName)
     {
-        var prefix = _generationOptions.DocumentsUrlPrefix?.TrimEnd('/') ?? "/Documents/Exam";
+        var prefix = _generationOptions.DocumentsUrlPrefix?.TrimEnd('/') ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(prefix))
+        {
+            return fileName;
+        }
+
+        if (Uri.TryCreate(prefix, UriKind.Absolute, out var absolutePrefix))
+        {
+            return $"{absolutePrefix}/{fileName}";
+        }
+
         if (!prefix.StartsWith("/"))
         {
             prefix = "/" + prefix;
