@@ -12,6 +12,7 @@ namespace Ideageek.Examiner.Core.Repositories;
 
         public Task<IEnumerable<QuestionOption>> GetByExamAsync(Guid examId)
             => QueryFactory.Query(TableName)
+                .Select($"{TableName}.*") // Only option columns to avoid Question.Text overriding option Text
                 .Join("Question", "Question.Id", $"{TableName}.QuestionId")
                 .Where("Question.ExamId", examId)
                 .OrderBy($"{TableName}.Order")
