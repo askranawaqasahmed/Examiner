@@ -35,3 +35,4 @@ Notes:
 - `optionsPerQuestion` is derived from non-empty options on the question; default seed uses 4.
 - `correctOption` is included for downstream rendering/validation.
 - Use the `questionCount` and ordered `questions` array to lay out the sheet consistently.
+- Each question's `options` list now returns the actual option text from `QuestionOption.Text` (the query explicitly selects option columns to avoid the question text overwriting them during the join).
