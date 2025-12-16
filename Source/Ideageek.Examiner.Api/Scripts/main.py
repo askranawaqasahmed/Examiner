@@ -8,7 +8,10 @@ import textwrap
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
-import cv2
+try:
+    import cv2
+except Exception:
+    cv2 = None
 import numpy as np
 import qrcode
 from PIL import Image, ImageDraw, ImageFont
@@ -459,13 +462,21 @@ def detect_answers(
     region_size: int = 20,
     question_numbers: List[int] | None = None,
 ) -> Tuple[List[str], List[Dict]]:
-    if isinstance(image_source, np.ndarray):
-        image = image_source
-    elif isinstance(image_source, Image.Image):
-        image = np.array(image_source.convert("L"))
-    else:
-        image = cv2.imread(str(image_source), cv2.IMREAD_GRAYSCALE)
-    if image is None:
+    def load_grayscale(source: Path | Image.Image | np.ndarray) -> np.ndarray:
+        if isinstance(source, np.ndarray):
+            return source
+        if isinstance(source, Image.Image):
+            return np.array(source.convert("L"))
+        # Prefer OpenCV if available and functional; otherwise Pillow fallback.
+        if cv2 is not None:
+            image_cv = cv2.imread(str(source), cv2.IMREAD_GRAYSCALE)
+            if image_cv is not None:
+                return image_cv
+        with Image.open(source) as img:
+            return np.array(img.convert("L"))
+
+    image = load_grayscale(image_source)
+    if image is None or not hasattr(image, "shape"):
         raise FileNotFoundError(f"Unable to load image from {image_source}")
 
     positions = compute_bubble_positions(questions, header_options_order)
