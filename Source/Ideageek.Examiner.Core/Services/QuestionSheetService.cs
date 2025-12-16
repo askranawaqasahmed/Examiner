@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -333,8 +334,16 @@ public class QuestionSheetService : IQuestionSheetService
                 ? "python"
                 : _generationOptions.PythonPath;
 
-            if ((pythonPath.Contains(Path.DirectorySeparatorChar) || pythonPath.Contains(Path.AltDirectorySeparatorChar)) &&
-                !File.Exists(pythonPath))
+            var pathLooksExplicit = pythonPath.Contains(Path.DirectorySeparatorChar) ||
+                                    pythonPath.Contains(Path.AltDirectorySeparatorChar);
+            if (pathLooksExplicit && !File.Exists(pythonPath))
+            {
+                // Fall back to python on PATH if the configured path is stale
+                pythonPath = "python";
+                pathLooksExplicit = false;
+            }
+
+            if (pathLooksExplicit && !File.Exists(pythonPath))
             {
                 throw new FileNotFoundException("Configured Python executable not found.", pythonPath);
             }
@@ -364,23 +373,32 @@ public class QuestionSheetService : IQuestionSheetService
             startInfo.ArgumentList.Add("--json");
             startInfo.ArgumentList.Add(tempPayloadPath);
 
-            using var process = new Process { StartInfo = startInfo };
-            process.Start();
-
-            var stdoutTask = process.StandardOutput.ReadToEndAsync();
-            var stderrTask = process.StandardError.ReadToEndAsync();
-            await process.WaitForExitAsync();
-
-            var stdout = await stdoutTask;
-            var stderr = await stderrTask;
-
-            if (process.ExitCode != 0)
+            try
             {
-                throw new InvalidOperationException(
-                    $"Question sheet script failed (exit code: {process.ExitCode}).\n{stderr.Trim()}");
-            }
+                using var process = new Process { StartInfo = startInfo };
+                process.Start();
 
-            return stdout;
+                var stdoutTask = process.StandardOutput.ReadToEndAsync();
+                var stderrTask = process.StandardError.ReadToEndAsync();
+                await process.WaitForExitAsync();
+
+                var stdout = await stdoutTask;
+                var stderr = await stderrTask;
+
+                if (process.ExitCode != 0)
+                {
+                    throw new InvalidOperationException(
+                        $"Question sheet script failed (exit code: {process.ExitCode}).\n{stderr.Trim()}");
+                }
+
+                return stdout;
+            }
+            catch (Win32Exception ex) when (ex.NativeErrorCode == 2)
+            {
+                throw new FileNotFoundException(
+                    "Python executable not found. Ensure Python is installed and available in PATH or configure AppSettings:PythonPath.",
+                    pythonPath);
+            }
         }
         finally
         {
