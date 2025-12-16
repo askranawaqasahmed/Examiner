@@ -330,18 +330,16 @@ public class QuestionSheetService : IQuestionSheetService
 
         try
         {
-            var pythonPath = string.IsNullOrWhiteSpace(_generationOptions.PythonPath)
-                ? "python"
-                : _generationOptions.PythonPath;
+            var configuredPython = string.IsNullOrWhiteSpace(_generationOptions.PythonPath)
+                ? string.Empty
+                : _generationOptions.PythonPath.Trim();
 
-            var pathLooksExplicit = pythonPath.Contains(Path.DirectorySeparatorChar) ||
-                                    pythonPath.Contains(Path.AltDirectorySeparatorChar);
-            if (pathLooksExplicit && !File.Exists(pythonPath))
-            {
-                // Fall back to python on PATH if the configured path is stale
-                pythonPath = "python";
-                pathLooksExplicit = false;
-            }
+            var pathLooksExplicit = configuredPython.Contains(Path.DirectorySeparatorChar) ||
+                                    configuredPython.Contains(Path.AltDirectorySeparatorChar);
+
+            var pythonPath = pathLooksExplicit
+                ? configuredPython
+                : string.IsNullOrEmpty(configuredPython) ? "python" : configuredPython;
 
             if (pathLooksExplicit && !File.Exists(pythonPath))
             {
