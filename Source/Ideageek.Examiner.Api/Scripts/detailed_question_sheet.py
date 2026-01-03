@@ -76,6 +76,7 @@ def render_sheet(payload: Dict[str, Any], sheet_label: str) -> Image.Image:
         text = question.get("text") or ""
         lines = max(int(question.get("lines") or 1), 1)
         marks = question.get("marks") or 0
+        is_diagram = bool(question.get("isDiagram") or question.get("diagram") or question.get("type") == "diagram")
 
         # Question line with marks on the right
         question_text = f"Q.{qnum}."
@@ -107,16 +108,27 @@ def render_sheet(payload: Dict[str, Any], sheet_label: str) -> Image.Image:
 
         current_y += QUESTION_TO_LINES_GAP
 
-        # Answer lines
-        for _ in range(lines):
-            draw.line(
-                [(MARGIN_X, current_y), (PAGE_WIDTH - MARGIN_X, current_y)],
-                fill="black",
+        # Answer area
+        if is_diagram:
+            rect_height = max(lines * (LINE_SPACING + LINE_GAP), 600)
+            rect_y0 = current_y
+            rect_y1 = current_y + rect_height
+            draw.rectangle(
+                [(MARGIN_X, rect_y0), (PAGE_WIDTH - MARGIN_X, rect_y1)],
+                outline="black",
                 width=LINE_PEN_WIDTH,
             )
-            current_y += LINE_SPACING + LINE_GAP
+            current_y = rect_y1 + QUESTION_GAP
+        else:
+            for _ in range(lines):
+                draw.line(
+                    [(MARGIN_X, current_y), (PAGE_WIDTH - MARGIN_X, current_y)],
+                    fill="black",
+                    width=LINE_PEN_WIDTH,
+                )
+                current_y += LINE_SPACING + LINE_GAP
 
-        current_y += QUESTION_GAP
+            current_y += QUESTION_GAP
 
         if current_y > PAGE_HEIGHT - 200:
             break
