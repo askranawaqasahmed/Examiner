@@ -27,7 +27,12 @@ public class QuestionRepository : SqlKataRepository<Question>, IQuestionReposito
             return true;
         }
 
-        var affected = await QueryFactory.Query(TableName).InsertAsync(payload);
+        var affected = 0;
+        foreach (var q in payload)
+        {
+            affected += await QueryFactory.Query(TableName).InsertAsync(q);
+        }
+
         return affected > 0;
     }
 }

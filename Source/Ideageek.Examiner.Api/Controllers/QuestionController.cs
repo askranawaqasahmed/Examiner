@@ -1,3 +1,5 @@
+using Ideageek.Examiner.Api.Helpers;
+using Ideageek.Examiner.Api.Models;
 using Ideageek.Examiner.Core.Dtos;
 using Ideageek.Examiner.Core.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -18,27 +20,35 @@ public class QuestionController : ControllerBase
     }
 
     [HttpGet("by-exam/{examId:guid}")]
-    public async Task<ActionResult<IEnumerable<QuestionDto>>> GetByExam(Guid examId)
-        => Ok(await _questionService.GetByExamAsync(examId));
+    public async Task<ActionResult<ApiResponse<IEnumerable<QuestionDto>>>> GetByExam(Guid examId)
+    {
+        var questions = (await _questionService.GetByExamAsync(examId)).ToList();
+        return this.ApiOk<IEnumerable<QuestionDto>>(questions, count: questions.Count);
+    }
 
     [HttpPost]
-    public async Task<ActionResult> Create([FromBody] QuestionRequestDto request)
+    public async Task<ActionResult<ApiResponse<object?>>> Create([FromBody] QuestionRequestDto request)
     {
-        var id = await _questionService.CreateAsync(request);
-        return Created(string.Empty, new { id });
+        await _questionService.CreateAsync(request);
+        return this.ApiOk<object?>(null);
     }
 
-    [HttpPost("{id:guid}/update")]
-    public async Task<ActionResult> Update(Guid id, [FromBody] QuestionRequestDto request)
+    [HttpPost("update")]
+    public async Task<ActionResult<ApiResponse<object?>>> Update([FromBody] QuestionUpdateRequestDto request)
     {
-        var updated = await _questionService.UpdateAsync(id, request);
-        return updated ? NoContent() : NotFound();
+        var updated = await _questionService.UpdateAsync(request);
+        if (!updated)
+        {
+            return this.ApiNotFound<object?>();
+        }
+
+        return this.ApiOk<object?>(null);
     }
 
-    [HttpPost("{id:guid}/delete")]
-    public async Task<ActionResult> Delete(Guid id)
+    [HttpPost("delete/{id:guid}")]
+    public async Task<ActionResult<ApiResponse<object?>>> Delete(Guid id)
     {
         var deleted = await _questionService.DeleteAsync(id);
-        return deleted ? NoContent() : NotFound();
+        return deleted ? this.ApiOk<object?>(null) : this.ApiNotFound<object?>();
     }
 }

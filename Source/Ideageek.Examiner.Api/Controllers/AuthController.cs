@@ -1,4 +1,5 @@
 using Ideageek.Examiner.Api.Helpers;
+using Ideageek.Examiner.Api.Models;
 using Ideageek.Examiner.Core.Dtos;
 using Ideageek.Examiner.Core.Options;
 using Ideageek.Examiner.Core.Services.Interfaces;
@@ -26,35 +27,35 @@ public class AuthController : ControllerBase
 
     [AllowAnonymous]
     [HttpPost("login")]
-    public async Task<ActionResult<AuthResponseDto>> Login([FromBody] LoginRequestDto request)
+    public async Task<ActionResult<ApiResponse<AuthResponseDto>>> Login([FromBody] LoginRequestDto request)
     {
         var response = await AuthenticateAsync(request.Username, request.Password);
         if (response is null)
         {
-            return Unauthorized();
+            return this.ApiUnauthorized<AuthResponseDto>("Invalid credentials.");
         }
 
         AppendAuthCookie(response.Token, response.ExpiresAt);
-        return Ok(response);
+        return this.ApiOk(response);
     }
 
     [AllowAnonymous]
     [HttpGet("refresh-token")]
-    public async Task<ActionResult<AuthResponseDto>> RefreshToken()
+    public async Task<ActionResult<ApiResponse<AuthResponseDto>>> RefreshToken()
     {
         if (string.IsNullOrWhiteSpace(_autoAuthOptions.Username) || string.IsNullOrWhiteSpace(_autoAuthOptions.Password))
         {
-            return BadRequest("Auto-login credentials are not configured.");
+            return this.ApiBadRequest<AuthResponseDto>("Auto-login credentials are not configured.");
         }
 
         var response = await AuthenticateAsync(_autoAuthOptions.Username, _autoAuthOptions.Password);
         if (response is null)
         {
-            return Unauthorized();
+            return this.ApiUnauthorized<AuthResponseDto>("Invalid credentials.");
         }
 
         AppendAuthCookie(response.Token, response.ExpiresAt);
-        return Ok(response);
+        return this.ApiOk(response);
     }
 
     private async Task<AuthResponseDto?> AuthenticateAsync(string username, string password)

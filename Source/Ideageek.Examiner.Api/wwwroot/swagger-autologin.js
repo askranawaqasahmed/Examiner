@@ -37,12 +37,13 @@
     }
 
     const payload = await response.json();
-    if (!payload?.token) {
+    const token = payload?.token || payload?.value?.token;
+    if (!token) {
       console.warn("Swagger auto-auth response did not include a token.");
       return;
     }
 
-    applyToken(payload.token);
+    applyToken(token);
   };
 
   const ensureUiReady = () => {

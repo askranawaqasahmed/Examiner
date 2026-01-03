@@ -1,3 +1,6 @@
+using System.Linq;
+using Ideageek.Examiner.Api.Helpers;
+using Ideageek.Examiner.Api.Models;
 using Ideageek.Examiner.Core.Dtos;
 using Ideageek.Examiner.Core.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -18,45 +21,51 @@ public class StudentController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<StudentDto>>> GetAll()
-        => Ok(await _studentService.GetAllAsync());
+    public async Task<ActionResult<ApiResponse<IEnumerable<StudentDto>>>> GetAll()
+    {
+        var students = (await _studentService.GetAllAsync()).ToList();
+        return this.ApiOk<IEnumerable<StudentDto>>(students, count: students.Count);
+    }
 
     [HttpGet("{id:guid}")]
-    public async Task<ActionResult<StudentDto>> GetById(Guid id)
+    public async Task<ActionResult<ApiResponse<StudentDto>>> GetById(Guid id)
     {
         var student = await _studentService.GetByIdAsync(id);
-        return student is null ? NotFound() : Ok(student);
+        return student is null ? this.ApiNotFound<StudentDto>() : this.ApiOk(student);
     }
 
     [HttpGet("by-class/{classId:guid}")]
-    public async Task<ActionResult<IEnumerable<StudentDto>>> GetByClass(Guid classId)
-        => Ok(await _studentService.GetByClassAsync(classId));
+    public async Task<ActionResult<ApiResponse<IEnumerable<StudentDto>>>> GetByClass(Guid classId)
+    {
+        var students = (await _studentService.GetByClassAsync(classId)).ToList();
+        return this.ApiOk<IEnumerable<StudentDto>>(students, count: students.Count);
+    }
 
     [HttpPost]
-    public async Task<ActionResult> Create([FromBody] StudentRequestDto request)
+    public async Task<ActionResult<ApiResponse<object?>>> Create([FromBody] StudentRequestDto request)
     {
         try
         {
-            var id = await _studentService.CreateAsync(request);
-            return CreatedAtAction(nameof(GetById), new { id }, null);
+            await _studentService.CreateAsync(request);
+            return this.ApiOk<object?>(null);
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(new { message = ex.Message });
+            return this.ApiBadRequest<object?>(ex.Message);
         }
     }
 
     [HttpPost("{id:guid}/update")]
-    public async Task<ActionResult> Update(Guid id, [FromBody] StudentRequestDto request)
+    public async Task<ActionResult<ApiResponse<object?>>> Update(Guid id, [FromBody] StudentRequestDto request)
     {
         var updated = await _studentService.UpdateAsync(id, request);
-        return updated ? NoContent() : NotFound();
+        return updated ? this.ApiOk<object?>(null) : this.ApiNotFound<object?>();
     }
 
     [HttpPost("{id:guid}/delete")]
-    public async Task<ActionResult> Delete(Guid id)
+    public async Task<ActionResult<ApiResponse<object?>>> Delete(Guid id)
     {
         var deleted = await _studentService.DeleteAsync(id);
-        return deleted ? NoContent() : NotFound();
+        return deleted ? this.ApiOk<object?>(null) : this.ApiNotFound<object?>();
     }
 }

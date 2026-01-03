@@ -7,6 +7,6 @@ public interface IQuestionService
     Task<IEnumerable<QuestionDto>> GetByExamAsync(Guid examId);
     Task<QuestionDto?> GetByIdAsync(Guid id);
     Task<Guid> CreateAsync(QuestionRequestDto request);
-    Task<bool> UpdateAsync(Guid id, QuestionRequestDto request);
+    Task<bool> UpdateAsync(QuestionUpdateRequestDto request);
     Task<bool> DeleteAsync(Guid id);
 }

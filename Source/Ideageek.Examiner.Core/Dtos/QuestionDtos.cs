@@ -19,6 +19,11 @@ public class QuestionRequestDto
     public IEnumerable<QuestionOptionDto> Options { get; set; } = Array.Empty<QuestionOptionDto>();
 }
 
+public class QuestionUpdateRequestDto : QuestionRequestDto
+{
+    public Guid Id { get; set; }
+}
+
 public class QuestionOptionDto
 {
     public string Key { get; set; } = string.Empty;

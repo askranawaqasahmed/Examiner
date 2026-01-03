@@ -61,9 +61,9 @@ public class QuestionService : IQuestionService
         return entity.Id;
     }
 
-    public async Task<bool> UpdateAsync(Guid id, QuestionRequestDto request)
+    public async Task<bool> UpdateAsync(QuestionUpdateRequestDto request)
     {
-        var entity = await _questionRepository.GetByIdAsync(id);
+        var entity = await _questionRepository.GetByIdAsync(request.Id);
         if (entity is null)
         {
             return false;

@@ -1,3 +1,5 @@
+using Ideageek.Examiner.Api.Helpers;
+using Ideageek.Examiner.Api.Models;
 using Ideageek.Examiner.Core.Dtos;
 using Ideageek.Examiner.Core.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -23,11 +25,11 @@ public class QuestionSheetController : ControllerBase
     /// Intended to be consumed by external tooling (e.g., Python image generation).
     /// </summary>
     [HttpGet("template/{examId:guid}")]
-    public Task<ActionResult<QuestionSheetTemplateResponseDto>> GetTemplate(Guid examId)
+    public Task<ActionResult<ApiResponse<QuestionSheetTemplateResponseDto>>> GetTemplate(Guid examId)
         => HandleQuestionSheetTemplateRequestAsync(examId);
 
     [HttpGet("generate-question-sheet/{examId:guid}")]
-    public async Task<ActionResult<QuestionSheetGenerationResponseDto>> GenerateQuestionSheet(Guid examId)
+    public async Task<ActionResult<ApiResponse<QuestionSheetGenerationResponseDto>>> GenerateQuestionSheet(Guid examId)
     {
         try
         {
@@ -36,12 +38,12 @@ public class QuestionSheetController : ControllerBase
         }
         catch (Exception ex)
         {
-            return BuildExceptionResponse(ex);
+            return BuildExceptionResponse<QuestionSheetGenerationResponseDto>(ex);
         }
     }
 
     [HttpGet("generate-answer-sheet/{examId:guid}")]
-    public async Task<ActionResult<QuestionSheetGenerationResponseDto>> GenerateAnswerSheet(Guid examId)
+    public async Task<ActionResult<ApiResponse<QuestionSheetGenerationResponseDto>>> GenerateAnswerSheet(Guid examId)
     {
         try
         {
@@ -50,25 +52,25 @@ public class QuestionSheetController : ControllerBase
         }
         catch (Exception ex)
         {
-            return BuildExceptionResponse(ex);
+            return BuildExceptionResponse<QuestionSheetGenerationResponseDto>(ex);
         }
     }
 
     [HttpPost("{examId:guid}/calculate-score")]
     [Consumes("multipart/form-data")]
-    public async Task<ActionResult<CalculateScoreResponseDto>> CalculateScore(
+    public async Task<ActionResult<ApiResponse<CalculateScoreResponseDto>>> CalculateScore(
         Guid examId,
         [FromForm] string studentId,
         [FromForm] IFormFile? answerSheet)
     {
         if (string.IsNullOrWhiteSpace(studentId))
         {
-            return BadRequest("Student ID is required.");
+            return this.ApiBadRequest<CalculateScoreResponseDto>("Student ID is required.");
         }
 
         if (answerSheet is null || answerSheet.Length == 0)
         {
-            return BadRequest("Answer sheet file is required.");
+            return this.ApiBadRequest<CalculateScoreResponseDto>("Answer sheet file is required.");
         }
 
         await using var sheetStream = answerSheet.OpenReadStream();
@@ -79,32 +81,28 @@ public class QuestionSheetController : ControllerBase
                 studentId.Trim(),
                 sheetStream,
                 answerSheet.FileName);
-            return result is null ? NotFound() : Ok(result);
+            return result is null ? this.ApiNotFound<CalculateScoreResponseDto>() : this.ApiOk(result);
         }
         catch (Exception ex)
         {
-            return BuildExceptionResponse(ex);
+            return BuildExceptionResponse<CalculateScoreResponseDto>(ex);
         }
     }
 
-    private ActionResult<QuestionSheetGenerationResponseDto> BuildGenerationResponse(QuestionSheetGenerationResponseDto? result)
+    private ActionResult<ApiResponse<QuestionSheetGenerationResponseDto>> BuildGenerationResponse(QuestionSheetGenerationResponseDto? result)
     {
         if (result is null)
         {
-            return NotFound();
+            return this.ApiNotFound<QuestionSheetGenerationResponseDto>();
         }
 
         result.Url = BuildAbsoluteDocumentUrl(result.Url, result.FileName);
-        return Ok(result);
+        return this.ApiOk(result);
     }
 
-    private ObjectResult BuildExceptionResponse(Exception ex)
+    private ActionResult<ApiResponse<T>> BuildExceptionResponse<T>(Exception ex)
     {
-        return StatusCode(StatusCodes.Status500InternalServerError, new
-        {
-            error = ex.Message,
-            exception = ex.ToString()
-        });
+        return this.ApiServerError<T>(ex.Message);
     }
 
     private string BuildAbsoluteDocumentUrl(string? url, string fileName)
@@ -127,16 +125,16 @@ public class QuestionSheetController : ControllerBase
         return new Uri(baseUri, normalizedPath).ToString();
     }
 
-    private async Task<ActionResult<QuestionSheetTemplateResponseDto>> HandleQuestionSheetTemplateRequestAsync(Guid examId)
+    private async Task<ActionResult<ApiResponse<QuestionSheetTemplateResponseDto>>> HandleQuestionSheetTemplateRequestAsync(Guid examId)
     {
         try
         {
             var result = await _questionSheetService.GetTemplateAsync(examId);
-            return result is null ? NotFound() : Ok(result);
+            return result is null ? this.ApiNotFound<QuestionSheetTemplateResponseDto>() : this.ApiOk(result);
         }
         catch (Exception ex)
         {
-            return BuildExceptionResponse(ex);
+            return BuildExceptionResponse<QuestionSheetTemplateResponseDto>(ex);
         }
     }
 }
