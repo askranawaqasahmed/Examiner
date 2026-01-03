@@ -567,7 +567,9 @@ public class QuestionSheetService : IQuestionSheetService
                     questionNumber = q.QuestionNumber,
                     text = q.Text,
                     lines = q.Lines ?? 3,
-                    marks = q.Marks ?? 0
+                    marks = q.Marks ?? 0,
+                    isDiagram = q.Type == QuestionType.Diagram,
+                    boxSize = q.BoxSize
                 })
         };
     }

@@ -12,4 +12,5 @@ public class Question : IEntity
     public QuestionType Type { get; set; } = QuestionType.Mcq;
     public int? Lines { get; set; }
     public int? Marks { get; set; }
+    public DiagramBoxSize? BoxSize { get; set; }
 }

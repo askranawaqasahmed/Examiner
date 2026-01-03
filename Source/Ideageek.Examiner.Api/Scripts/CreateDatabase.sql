@@ -126,6 +126,7 @@ BEGIN
         Type INT NOT NULL CONSTRAINT DF_Question_Type DEFAULT(0),
         Lines INT NULL,
         Marks INT NULL,
+        BoxSize INT NULL,
         CONSTRAINT FK_Question_Exam FOREIGN KEY (ExamId) REFERENCES dbo.Exam(Id)
     );
 END
@@ -170,6 +171,12 @@ GO
 IF COL_LENGTH(N'dbo.Question', N'Marks') IS NULL
 BEGIN
     ALTER TABLE dbo.Question ADD Marks INT NULL;
+END
+GO
+
+IF COL_LENGTH(N'dbo.Question', N'BoxSize') IS NULL
+BEGIN
+    ALTER TABLE dbo.Question ADD BoxSize INT NULL;
 END
 GO
 
@@ -316,3 +323,25 @@ BEGIN
     VALUES (NEWID(), @ExamId, N'Default OMR Template', N'Template used for demo 10-question sheet.', 1);
 END
 GO
+
+-- Ensure demo diagram question uses half-page box
+DECLARE @DiagramQuestionId UNIQUEIDENTIFIER = '0c1f7d9d-2fb2-4d7b-b5aa-6f5c1a8f7a11';
+DECLARE @DetailedExamId UNIQUEIDENTIFIER = 'B4C1A8F7-52D2-4E71-9B5D-51F9C0B42F18';
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Exam WHERE Id = @DetailedExamId)
+BEGIN
+    INSERT INTO dbo.Exam (Id, SchoolId, ClassId, Name, Subject, TotalMarks, QuestionCount, ExamDate, Type)
+    VALUES (@DetailedExamId, @SchoolId, @ClassGrade9, N'Demo Detailed Test', N'Science', 35, 4, SYSDATETIME(), 1);
+END
+
+IF EXISTS (SELECT 1 FROM dbo.Question WHERE Id = @DiagramQuestionId)
+BEGIN
+    UPDATE dbo.Question
+    SET Type = 2, Marks = 30, Lines = NULL, BoxSize = 2
+    WHERE Id = @DiagramQuestionId;
+END
+ELSE
+BEGIN
+    INSERT INTO dbo.Question (Id, ExamId, QuestionNumber, Text, CorrectOption, Type, Lines, Marks, BoxSize)
+    VALUES (@DiagramQuestionId, @DetailedExamId, 4, N'Draw a labeled diagram of the human heart.', 'A', 2, NULL, 30, 2);
+END

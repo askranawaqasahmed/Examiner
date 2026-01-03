@@ -12,6 +12,7 @@ public class QuestionDto
     public QuestionType Type { get; set; }
     public int? Lines { get; set; }
     public int? Marks { get; set; }
+    public DiagramBoxSize? BoxSize { get; set; }
     public IReadOnlyCollection<QuestionOptionDto> Options { get; set; } = Array.Empty<QuestionOptionDto>();
 }
 
@@ -24,6 +25,7 @@ public class QuestionRequestDto
     public QuestionType Type { get; set; } = QuestionType.Mcq;
     public int? Lines { get; set; }
     public int? Marks { get; set; }
+    public DiagramBoxSize? BoxSize { get; set; }
     public IEnumerable<QuestionOptionDto> Options { get; set; } = Array.Empty<QuestionOptionDto>();
 }
 

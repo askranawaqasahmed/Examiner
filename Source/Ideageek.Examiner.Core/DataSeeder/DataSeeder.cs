@@ -31,6 +31,7 @@ public class DataSeeder : IDataSeeder
             QuestionType.Mcq,
             null,
             null,
+            DiagramBoxSize.Quarter,
             new[]
             {
                 new QuestionSeedOption("A", "Atlantic Ocean", 1),
@@ -46,6 +47,7 @@ public class DataSeeder : IDataSeeder
             QuestionType.Mcq,
             null,
             null,
+            DiagramBoxSize.Quarter,
             new[]
             {
                 new QuestionSeedOption("A", "Roots", 1),
@@ -61,6 +63,7 @@ public class DataSeeder : IDataSeeder
             QuestionType.Mcq,
             null,
             null,
+            DiagramBoxSize.Quarter,
             new[]
             {
                 new QuestionSeedOption("A", "1943", 1),
@@ -76,6 +79,7 @@ public class DataSeeder : IDataSeeder
             QuestionType.Mcq,
             null,
             null,
+            DiagramBoxSize.Quarter,
             new[]
             {
                 new QuestionSeedOption("A", "Sydney", 1),
@@ -91,6 +95,7 @@ public class DataSeeder : IDataSeeder
             QuestionType.Mcq,
             null,
             null,
+            DiagramBoxSize.Quarter,
             new[]
             {
                 new QuestionSeedOption("A", "Carnivores", 1),
@@ -106,6 +111,7 @@ public class DataSeeder : IDataSeeder
             QuestionType.Mcq,
             null,
             null,
+            DiagramBoxSize.Quarter,
             new[]
             {
                 new QuestionSeedOption("A", "Amazon River", 1),
@@ -121,6 +127,7 @@ public class DataSeeder : IDataSeeder
             QuestionType.Mcq,
             null,
             null,
+            DiagramBoxSize.Quarter,
             new[]
             {
                 new QuestionSeedOption("A", "Condensation", 1),
@@ -136,6 +143,7 @@ public class DataSeeder : IDataSeeder
             QuestionType.Mcq,
             null,
             null,
+            DiagramBoxSize.Quarter,
             new[]
             {
                 new QuestionSeedOption("A", "Buzz Aldrin", 1),
@@ -151,6 +159,7 @@ public class DataSeeder : IDataSeeder
             QuestionType.Mcq,
             null,
             null,
+            DiagramBoxSize.Quarter,
             new[]
             {
                 new QuestionSeedOption("A", "Five", 1),
@@ -166,6 +175,7 @@ public class DataSeeder : IDataSeeder
             QuestionType.Mcq,
             null,
             null,
+            DiagramBoxSize.Quarter,
             new[]
             {
                 new QuestionSeedOption("T", "True", 1),
@@ -183,6 +193,7 @@ public class DataSeeder : IDataSeeder
             QuestionType.Detailed,
             3,
             10,
+            DiagramBoxSize.Quarter,
             Array.Empty<QuestionSeedOption>()),
         new QuestionSeedDefinition(
             Guid.Parse("a77bf5f1-8458-4a39-b27a-30db6e7d4002"),
@@ -192,6 +203,7 @@ public class DataSeeder : IDataSeeder
             QuestionType.Detailed,
             5,
             20,
+            DiagramBoxSize.Quarter,
             Array.Empty<QuestionSeedOption>()),
         new QuestionSeedDefinition(
             Guid.Parse("2c5df7a1-6a5c-4df8-bc74-4cfb7e5b9003"),
@@ -201,6 +213,17 @@ public class DataSeeder : IDataSeeder
             QuestionType.Detailed,
             1,
             5,
+            DiagramBoxSize.Quarter,
+            Array.Empty<QuestionSeedOption>()),
+        new QuestionSeedDefinition(
+            Guid.Parse("0c1f7d9d-2fb2-4d7b-b5aa-6f5c1a8f7a11"),
+            4,
+            "Draw a labeled diagram of the human heart.",
+            null,
+            QuestionType.Diagram,
+            null,
+            30,
+            DiagramBoxSize.Half,
             Array.Empty<QuestionSeedOption>())
     };
 
@@ -467,7 +490,8 @@ public class DataSeeder : IDataSeeder
                 CorrectOption = correctOption,
                 Type = question.Type,
                 Lines = question.Lines,
-                Marks = question.Marks
+                Marks = question.Marks,
+                BoxSize = question.BoxSize
             });
 
             if (question.Options is null || !question.Options.Any())
@@ -518,6 +542,7 @@ public class DataSeeder : IDataSeeder
         EnsureColumn("Question", "Type", "ALTER TABLE dbo.Question ADD Type INT NOT NULL CONSTRAINT DF_Question_Type DEFAULT(0);");
         EnsureColumn("Question", "Lines", "ALTER TABLE dbo.Question ADD Lines INT NULL;");
         EnsureColumn("Question", "Marks", "ALTER TABLE dbo.Question ADD Marks INT NULL;");
+        EnsureColumn("Question", "BoxSize", "ALTER TABLE dbo.Question ADD BoxSize INT NULL;");
     }
 
     private void EnsureColumn(string table, string column, string alterSql)
@@ -557,6 +582,7 @@ WHERE TABLE_NAME = @table AND COLUMN_NAME = @column";
         QuestionType Type,
         int? Lines,
         int? Marks,
+        DiagramBoxSize? BoxSize,
         QuestionSeedOption[] Options);
     private sealed record QuestionSeedOption(string Key, string Text, int Order);
 }

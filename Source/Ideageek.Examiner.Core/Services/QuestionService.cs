@@ -54,7 +54,7 @@ public class QuestionService : IQuestionService
         var exam = await _examRepository.GetByIdAsync(request.ExamId)
                    ?? throw new InvalidOperationException("Exam not found.");
 
-        var questionType = exam.Type == ExamType.Detailed ? QuestionType.Detailed : QuestionType.Mcq;
+        var questionType = exam.Type == ExamType.Detailed ? request.Type : QuestionType.Mcq;
         var entity = new Question
         {
             Id = Guid.NewGuid(),
@@ -64,7 +64,8 @@ public class QuestionService : IQuestionService
             CorrectOption = questionType == QuestionType.Mcq ? char.ToUpperInvariant(request.CorrectOption) : 'A',
             Type = questionType,
             Lines = questionType == QuestionType.Detailed ? request.Lines ?? 3 : null,
-            Marks = questionType == QuestionType.Detailed ? request.Marks ?? 0 : null
+            Marks = questionType != QuestionType.Mcq ? request.Marks ?? 0 : null,
+            BoxSize = questionType == QuestionType.Diagram ? request.BoxSize ?? DiagramBoxSize.Half : null
         };
 
         await _questionRepository.InsertAsync(entity);
@@ -90,14 +91,15 @@ public class QuestionService : IQuestionService
             return false;
         }
 
-        var questionType = exam.Type == ExamType.Detailed ? QuestionType.Detailed : QuestionType.Mcq;
+        var questionType = exam.Type == ExamType.Detailed ? request.Type : QuestionType.Mcq;
 
         entity.QuestionNumber = request.QuestionNumber;
         entity.Text = request.Text;
         entity.CorrectOption = questionType == QuestionType.Mcq ? char.ToUpperInvariant(request.CorrectOption) : 'A';
         entity.Type = questionType;
         entity.Lines = questionType == QuestionType.Detailed ? request.Lines ?? 3 : null;
-        entity.Marks = questionType == QuestionType.Detailed ? request.Marks ?? 0 : null;
+        entity.Marks = questionType != QuestionType.Mcq ? request.Marks ?? 0 : null;
+        entity.BoxSize = questionType == QuestionType.Diagram ? request.BoxSize ?? DiagramBoxSize.Half : null;
 
         var updated = await _questionRepository.UpdateAsync(entity);
         if (!updated)
@@ -131,6 +133,7 @@ public class QuestionService : IQuestionService
             Type = entity.Type,
             Lines = entity.Lines,
             Marks = entity.Marks,
+            BoxSize = entity.BoxSize,
             Options = options
         };
 

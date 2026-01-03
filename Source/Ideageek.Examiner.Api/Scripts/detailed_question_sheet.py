@@ -76,7 +76,15 @@ def render_sheet(payload: Dict[str, Any], sheet_label: str) -> Image.Image:
         text = question.get("text") or ""
         lines = max(int(question.get("lines") or 1), 1)
         marks = question.get("marks") or 0
-        is_diagram = bool(question.get("isDiagram") or question.get("diagram") or question.get("type") == "diagram")
+        q_type = question.get("type")
+        is_diagram = bool(
+            question.get("isDiagram")
+            or question.get("diagram")
+            or q_type == "diagram"
+            or q_type == 2
+        )
+        box_size_raw = question.get("boxSize")
+        box_size = str(box_size_raw or "").lower()
 
         # Question line with marks on the right
         question_text = f"Q.{qnum}."
@@ -110,7 +118,22 @@ def render_sheet(payload: Dict[str, Any], sheet_label: str) -> Image.Image:
 
         # Answer area
         if is_diagram:
-            rect_height = max(lines * (LINE_SPACING + LINE_GAP), 600)
+            available_height = PAGE_HEIGHT - current_y - 200
+            factor = 0.45
+            if "full" in box_size:
+                factor = 0.95
+            elif "three" in box_size or "3/4" in box_size:
+                factor = 0.8
+            elif "half" in box_size:
+                factor = 0.65
+            elif "quarter" in box_size or "1/4" in box_size:
+                factor = 0.4
+
+            # Try to fill the intended fraction of the page while respecting remaining space.
+            target_height = int(PAGE_HEIGHT * factor) - (2 * MARGIN_Y)
+            height_from_box = min(available_height, max(target_height, 600))
+
+            rect_height = max(height_from_box, lines * (LINE_SPACING + LINE_GAP))
             rect_y0 = current_y
             rect_y1 = current_y + rect_height
             draw.rectangle(
