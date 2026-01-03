@@ -1,3 +1,5 @@
+using Ideageek.Examiner.Core.Enums;
+
 namespace Ideageek.Examiner.Core.Dtos;
 
 public class ExamDto
@@ -10,6 +12,7 @@ public class ExamDto
     public int TotalMarks { get; set; }
     public int QuestionCount { get; set; }
     public DateTime? ExamDate { get; set; }
+    public ExamType Type { get; set; }
     public string SchoolName { get; set; } = string.Empty;
     public string ClassName { get; set; } = string.Empty;
 }
@@ -23,4 +26,5 @@ public class ExamRequestDto
     public int TotalMarks { get; set; }
     public int QuestionCount { get; set; }
     public DateTime? ExamDate { get; set; }
+    public ExamType Type { get; set; } = ExamType.Mcq;
 }

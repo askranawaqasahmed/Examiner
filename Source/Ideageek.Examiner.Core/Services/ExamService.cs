@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Ideageek.Examiner.Core.Dtos;
 using Ideageek.Examiner.Core.Entities;
+using Ideageek.Examiner.Core.Enums;
 using Ideageek.Examiner.Core.Repositories.Interfaces;
 using Ideageek.Examiner.Core.Services.Interfaces;
 
@@ -58,6 +59,7 @@ public class ExamService : IExamService
             TotalMarks = request.TotalMarks,
             QuestionCount = request.QuestionCount,
             ExamDate = request.ExamDate,
+            Type = request.Type,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -79,6 +81,7 @@ public class ExamService : IExamService
         entity.TotalMarks = request.TotalMarks;
         entity.QuestionCount = request.QuestionCount;
         entity.ExamDate = request.ExamDate;
+        entity.Type = request.Type;
 
         return await _examRepository.UpdateAsync(entity);
     }
@@ -110,6 +113,7 @@ public class ExamService : IExamService
             TotalMarks = entity.TotalMarks,
             QuestionCount = entity.QuestionCount,
             ExamDate = entity.ExamDate,
+            Type = entity.Type,
             SchoolName = schoolName,
             ClassName = className
         };

@@ -83,6 +83,10 @@ public class QuestionSheetController : ControllerBase
                 answerSheet.FileName);
             return result is null ? this.ApiNotFound<CalculateScoreResponseDto>() : this.ApiOk(result);
         }
+        catch (InvalidOperationException ex)
+        {
+            return this.ApiBadRequest<CalculateScoreResponseDto>(ex.Message);
+        }
         catch (Exception ex)
         {
             return BuildExceptionResponse<CalculateScoreResponseDto>(ex);

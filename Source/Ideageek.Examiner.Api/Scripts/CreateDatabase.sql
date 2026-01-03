@@ -84,6 +84,7 @@ BEGIN
         Subject NVARCHAR(200) NOT NULL,
         TotalMarks INT NOT NULL,
         QuestionCount INT NOT NULL,
+        Type INT NOT NULL CONSTRAINT DF_Exam_Type DEFAULT(0),
         ExamDate DATETIME2 NULL,
         CreatedAt DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
         QuestionSheetFileName NVARCHAR(400) NULL,
@@ -106,6 +107,12 @@ BEGIN
 END
 GO
 
+IF COL_LENGTH(N'dbo.Exam', N'Type') IS NULL
+BEGIN
+    ALTER TABLE dbo.Exam ADD Type INT NOT NULL CONSTRAINT DF_Exam_Type DEFAULT(0);
+END
+GO
+
 -- Question table
 IF OBJECT_ID(N'dbo.Question', N'U') IS NULL
 BEGIN
@@ -116,6 +123,9 @@ BEGIN
         QuestionNumber INT NOT NULL,
         Text NVARCHAR(500) NOT NULL,
         CorrectOption CHAR(1) NOT NULL,
+        Type INT NOT NULL CONSTRAINT DF_Question_Type DEFAULT(0),
+        Lines INT NULL,
+        Marks INT NULL,
         CONSTRAINT FK_Question_Exam FOREIGN KEY (ExamId) REFERENCES dbo.Exam(Id)
     );
 END
@@ -142,6 +152,24 @@ GO
 IF COL_LENGTH(N'dbo.Question', N'OptionD') IS NOT NULL
 BEGIN
     ALTER TABLE dbo.Question DROP COLUMN OptionD;
+END
+GO
+
+IF COL_LENGTH(N'dbo.Question', N'Type') IS NULL
+BEGIN
+    ALTER TABLE dbo.Question ADD Type INT NOT NULL CONSTRAINT DF_Question_Type DEFAULT(0);
+END
+GO
+
+IF COL_LENGTH(N'dbo.Question', N'Lines') IS NULL
+BEGIN
+    ALTER TABLE dbo.Question ADD Lines INT NULL;
+END
+GO
+
+IF COL_LENGTH(N'dbo.Question', N'Marks') IS NULL
+BEGIN
+    ALTER TABLE dbo.Question ADD Marks INT NULL;
 END
 GO
 
@@ -278,8 +306,8 @@ END
 DECLARE @ExamId UNIQUEIDENTIFIER = 'A9E7DC13-C9F7-44B0-9D13-148771AB0B1B';
 IF NOT EXISTS (SELECT 1 FROM dbo.Exam WHERE Id = @ExamId)
 BEGIN
-    INSERT INTO dbo.Exam (Id, SchoolId, ClassId, Name, Subject, TotalMarks, QuestionCount, ExamDate)
-    VALUES (@ExamId, @SchoolId, @ClassGrade8, N'Demo MCQ Test', N'Mathematics', 10, 10, SYSDATETIME());
+    INSERT INTO dbo.Exam (Id, SchoolId, ClassId, Name, Subject, TotalMarks, QuestionCount, ExamDate, Type)
+    VALUES (@ExamId, @SchoolId, @ClassGrade8, N'Demo MCQ Test', N'Mathematics', 10, 10, SYSDATETIME(), 0);
 END
 
 IF NOT EXISTS (SELECT 1 FROM dbo.QuestionSheetTemplate WHERE ExamId = @ExamId AND Name = N'Default OMR Template')

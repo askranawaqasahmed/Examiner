@@ -1,3 +1,5 @@
+using Ideageek.Examiner.Core.Enums;
+
 namespace Ideageek.Examiner.Core.Dtos;
 
 public class QuestionDto
@@ -7,6 +9,9 @@ public class QuestionDto
     public int QuestionNumber { get; set; }
     public string Text { get; set; } = string.Empty;
     public char CorrectOption { get; set; }
+    public QuestionType Type { get; set; }
+    public int? Lines { get; set; }
+    public int? Marks { get; set; }
     public IReadOnlyCollection<QuestionOptionDto> Options { get; set; } = Array.Empty<QuestionOptionDto>();
 }
 
@@ -16,6 +21,9 @@ public class QuestionRequestDto
     public int QuestionNumber { get; set; }
     public string Text { get; set; } = string.Empty;
     public char CorrectOption { get; set; }
+    public QuestionType Type { get; set; } = QuestionType.Mcq;
+    public int? Lines { get; set; }
+    public int? Marks { get; set; }
     public IEnumerable<QuestionOptionDto> Options { get; set; } = Array.Empty<QuestionOptionDto>();
 }
 

@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
+using System.Drawing;
+using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -10,6 +12,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Ideageek.Examiner.Core.Dtos;
 using Ideageek.Examiner.Core.Entities;
+using Ideageek.Examiner.Core.Enums;
 using Ideageek.Examiner.Core.Helpers;
 using Ideageek.Examiner.Core.Options;
 using Ideageek.Examiner.Core.Repositories.Interfaces;
@@ -154,6 +157,19 @@ public class QuestionSheetService : IQuestionSheetService
             return null;
         }
 
+        if (data.Exam.Type == ExamType.Detailed)
+        {
+            var questionFileName = await GenerateDetailedSheetAsync(data, "question");
+            data.Exam.QuestionSheetFileName = questionFileName;
+            await _examRepository.UpdateAsync(data.Exam);
+
+            return new QuestionSheetGenerationResponseDto
+            {
+                FileName = questionFileName,
+                Url = BuildDocumentUrl(questionFileName)
+            };
+        }
+
         var templateDto = BuildTemplateResponse(data);
         var payload = BuildScriptPayload(templateDto);
         var payloadJson = JsonSerializer.Serialize(payload, new JsonSerializerOptions
@@ -163,15 +179,15 @@ public class QuestionSheetService : IQuestionSheetService
 
         var scriptOutput = await RunQuestionSheetScriptAsync(payloadJson, "questionSheet");
         var imageBase64 = ExtractImageBase64(scriptOutput);
-        var fileName = await SaveSheetImageAsync(data.Exam, imageBase64, "question");
+        var mcqFileName = await SaveSheetImageAsync(data.Exam, imageBase64, "question");
 
-        data.Exam.QuestionSheetFileName = fileName;
+        data.Exam.QuestionSheetFileName = mcqFileName;
         await _examRepository.UpdateAsync(data.Exam);
 
         return new QuestionSheetGenerationResponseDto
         {
-            FileName = fileName,
-            Url = BuildDocumentUrl(fileName)
+            FileName = mcqFileName,
+            Url = BuildDocumentUrl(mcqFileName)
         };
     }
 
@@ -183,6 +199,19 @@ public class QuestionSheetService : IQuestionSheetService
             return null;
         }
 
+        if (data.Exam.Type == ExamType.Detailed)
+        {
+            var answerFileName = await GenerateDetailedSheetAsync(data, "answer");
+            data.Exam.AnswerSheetFileName = answerFileName;
+            await _examRepository.UpdateAsync(data.Exam);
+
+            return new QuestionSheetGenerationResponseDto
+            {
+                FileName = answerFileName,
+                Url = BuildDocumentUrl(answerFileName)
+            };
+        }
+
         var payload = BuildScriptPayload(BuildTemplateResponse(data));
         var payloadJson = JsonSerializer.Serialize(payload, new JsonSerializerOptions
         {
@@ -191,15 +220,15 @@ public class QuestionSheetService : IQuestionSheetService
 
         var scriptOutput = await RunQuestionSheetScriptAsync(payloadJson, "answerSheet");
         var imageBase64 = ExtractImageBase64(scriptOutput);
-        var fileName = await SaveSheetImageAsync(data.Exam, imageBase64, "answer");
+        var mcqAnswerFileName = await SaveSheetImageAsync(data.Exam, imageBase64, "answer");
 
-        data.Exam.AnswerSheetFileName = fileName;
+        data.Exam.AnswerSheetFileName = mcqAnswerFileName;
         await _examRepository.UpdateAsync(data.Exam);
 
         return new QuestionSheetGenerationResponseDto
         {
-            FileName = fileName,
-            Url = BuildDocumentUrl(fileName)
+            FileName = mcqAnswerFileName,
+            Url = BuildDocumentUrl(mcqAnswerFileName)
         };
     }
 
@@ -218,6 +247,11 @@ public class QuestionSheetService : IQuestionSheetService
         if (data is null)
         {
             return null;
+        }
+
+        if (data.Exam.Type == ExamType.Detailed)
+        {
+            throw new InvalidOperationException("Score calculation is only supported for MCQ exams.");
         }
 
         var savedPath = await SaveUploadedSheetAsync(data.Exam, studentId, sheetStream, originalFileName);
@@ -624,6 +658,58 @@ public class QuestionSheetService : IQuestionSheetService
         }
 
         return response;
+    }
+
+    private async Task<string> GenerateDetailedSheetAsync(ExamQuestionData data, string sheetLabel)
+    {
+        var imageBytes = RenderDetailedSheetPng(data.Exam, data.Questions, sheetLabel);
+        var base64 = Convert.ToBase64String(imageBytes);
+        return await SaveSheetImageAsync(data.Exam, base64, sheetLabel);
+    }
+
+    private static byte[] RenderDetailedSheetPng(Exam exam, IReadOnlyList<Question> questions, string sheetLabel)
+    {
+        const int width = 2480;
+        const int height = 3508;
+        using var bitmap = new Bitmap(width, height);
+        using var graphics = Graphics.FromImage(bitmap);
+        graphics.Clear(Color.White);
+
+        using var headerFont = new Font("Arial", 32, FontStyle.Bold);
+        using var subHeaderFont = new Font("Arial", 22, FontStyle.Regular);
+        using var bodyFont = new Font("Arial", 20, FontStyle.Regular);
+        using var pen = new Pen(Color.Black, 2);
+
+        graphics.DrawString(exam.Name, headerFont, Brushes.Black, new PointF(120, 80));
+        graphics.DrawString($"Exam ID: {exam.Id}", subHeaderFont, Brushes.Black, new PointF(120, 130));
+        graphics.DrawString($"Type: Detailed", subHeaderFont, Brushes.Black, new PointF(120, 170));
+        graphics.DrawString($"Sheet: {sheetLabel}", subHeaderFont, Brushes.Black, new PointF(120, 210));
+
+        float currentY = 280;
+        foreach (var question in questions.OrderBy(q => q.QuestionNumber))
+        {
+            var marksText = question.Marks.HasValue ? $" ({question.Marks} marks)" : string.Empty;
+            graphics.DrawString($"Q{question.QuestionNumber}) {question.Text}{marksText}", bodyFont, Brushes.Black, new PointF(120, currentY));
+            currentY += 40;
+
+            var lines = Math.Max(1, question.Lines ?? 3);
+            for (var i = 0; i < lines; i++)
+            {
+                var y = currentY + i * 30;
+                graphics.DrawLine(pen, 140, y, width - 140, y);
+            }
+
+            currentY += lines * 30 + 40;
+
+            if (currentY > height - 200)
+            {
+                break;
+            }
+        }
+
+        using var ms = new MemoryStream();
+        bitmap.Save(ms, ImageFormat.Png);
+        return ms.ToArray();
     }
 
     private string BuildDocumentUrl(string fileName)

@@ -1,4 +1,5 @@
 using Ideageek.Examiner.Core.Dtos;
+using Ideageek.Examiner.Core.Enums;
 
 namespace Ideageek.Examiner.Core.Services.Interfaces;
 

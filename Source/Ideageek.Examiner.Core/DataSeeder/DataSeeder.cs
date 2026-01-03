@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using Ideageek.Examiner.Core.Entities;
+using Ideageek.Examiner.Core.Enums;
 using Ideageek.Examiner.Core.Helpers;
 using Microsoft.Extensions.Logging;
 using SqlKata.Execution;
@@ -11,19 +13,24 @@ namespace Ideageek.Examiner.Core.DataSeeder;
 public class DataSeeder : IDataSeeder
 {
     private static readonly Guid DefaultDemoExamId = Guid.Parse("A9E7DC13-C9F7-44B0-9D13-148771AB0B1B");
+    private static readonly Guid DefaultDetailedExamId = Guid.Parse("B4C1A8F7-52D2-4E71-9B5D-51F9C0B42F18");
     private const string SuperAdminUsername = "superadmin@examiner.com";
     private const string SuperAdminPassword = "SuperAdmin@123";
 
     private readonly QueryFactory _queryFactory;
+    private readonly IDbConnection _connection;
     private readonly ILogger<DataSeeder> _logger;
 
-    private static readonly QuestionSeedDefinition[] QuestionBank = new[]
+    private static readonly QuestionSeedDefinition[] McqQuestionBank = new[]
     {
         new QuestionSeedDefinition(
             Guid.Parse("86442efe-23cc-40b0-add3-7a781d28fc9a"),
             1,
             "What is the largest ocean on Earth?",
             "C",
+            QuestionType.Mcq,
+            null,
+            null,
             new[]
             {
                 new QuestionSeedOption("A", "Atlantic Ocean", 1),
@@ -36,6 +43,9 @@ public class DataSeeder : IDataSeeder
             2,
             "Which part of the plant is responsible for making food through photosynthesis?",
             "B",
+            QuestionType.Mcq,
+            null,
+            null,
             new[]
             {
                 new QuestionSeedOption("A", "Roots", 1),
@@ -48,6 +58,9 @@ public class DataSeeder : IDataSeeder
             3,
             "In which year did World War II end?",
             "C",
+            QuestionType.Mcq,
+            null,
+            null,
             new[]
             {
                 new QuestionSeedOption("A", "1943", 1),
@@ -60,6 +73,9 @@ public class DataSeeder : IDataSeeder
             4,
             "What is the capital city of Australia?",
             "C",
+            QuestionType.Mcq,
+            null,
+            null,
             new[]
             {
                 new QuestionSeedOption("A", "Sydney", 1),
@@ -72,6 +88,9 @@ public class DataSeeder : IDataSeeder
             5,
             "What do we call animals that eat only plants?",
             "B",
+            QuestionType.Mcq,
+            null,
+            null,
             new[]
             {
                 new QuestionSeedOption("A", "Carnivores", 1),
@@ -84,6 +103,9 @@ public class DataSeeder : IDataSeeder
             6,
             "Which river is the longest in the world?",
             "B",
+            QuestionType.Mcq,
+            null,
+            null,
             new[]
             {
                 new QuestionSeedOption("A", "Amazon River", 1),
@@ -96,6 +118,9 @@ public class DataSeeder : IDataSeeder
             7,
             "What is the process by which water changes from liquid to gas called?",
             "B",
+            QuestionType.Mcq,
+            null,
+            null,
             new[]
             {
                 new QuestionSeedOption("A", "Condensation", 1),
@@ -108,6 +133,9 @@ public class DataSeeder : IDataSeeder
             8,
             "Who was the first person to walk on the Moon?",
             "B",
+            QuestionType.Mcq,
+            null,
+            null,
             new[]
             {
                 new QuestionSeedOption("A", "Buzz Aldrin", 1),
@@ -120,6 +148,9 @@ public class DataSeeder : IDataSeeder
             9,
             "How many continents are there on Earth?",
             "C",
+            QuestionType.Mcq,
+            null,
+            null,
             new[]
             {
                 new QuestionSeedOption("A", "Five", 1),
@@ -132,6 +163,9 @@ public class DataSeeder : IDataSeeder
             10,
             "Is Diamond the hardest natural substance on Earth?",
             "T",
+            QuestionType.Mcq,
+            null,
+            null,
             new[]
             {
                 new QuestionSeedOption("T", "True", 1),
@@ -139,9 +173,41 @@ public class DataSeeder : IDataSeeder
             })
     };
 
-    public DataSeeder(QueryFactory queryFactory, ILogger<DataSeeder> logger)
+    private static readonly QuestionSeedDefinition[] DetailedQuestionBank = new[]
+    {
+        new QuestionSeedDefinition(
+            Guid.Parse("5b9a1d6e-8c2c-4e94-bb07-2713e3b1b001"),
+            1,
+            "Explain the water cycle stages.",
+            null,
+            QuestionType.Detailed,
+            3,
+            10,
+            Array.Empty<QuestionSeedOption>()),
+        new QuestionSeedDefinition(
+            Guid.Parse("a77bf5f1-8458-4a39-b27a-30db6e7d4002"),
+            2,
+            "Describe photosynthesis and its importance.",
+            null,
+            QuestionType.Detailed,
+            5,
+            20,
+            Array.Empty<QuestionSeedOption>()),
+        new QuestionSeedDefinition(
+            Guid.Parse("2c5df7a1-6a5c-4df8-bc74-4cfb7e5b9003"),
+            3,
+            "List Newton's three laws of motion.",
+            null,
+            QuestionType.Detailed,
+            1,
+            5,
+            Array.Empty<QuestionSeedOption>())
+    };
+
+    public DataSeeder(QueryFactory queryFactory, IDbConnection connection, ILogger<DataSeeder> logger)
     {
         _queryFactory = queryFactory;
+        _connection = connection;
         _logger = logger;
     }
 
@@ -150,13 +216,18 @@ public class DataSeeder : IDataSeeder
         try
         {
             _logger.LogInformation("Examiner data seeder starting");
+            EnsureSchemaColumns();
             await EnsureSuperAdminAsync();
             var schoolId = await EnsureSchoolAsync();
             var classes = await EnsureClassesAsync(schoolId);
             var students = await EnsureStudentsAsync(schoolId, classes);
-            var examId = await EnsureExamAsync(schoolId, classes["Grade 8 - A"]);
-            await EnsureQuestionsAsync(examId);
-            await EnsureTemplateAsync(examId);
+            var mcqExamId = await EnsureExamAsync(schoolId, classes["Grade 8 - A"]);
+            await EnsureQuestionsAsync(mcqExamId, McqQuestionBank);
+            await EnsureTemplateAsync(mcqExamId);
+
+            var detailedExamId = await EnsureDetailedExamAsync(schoolId, classes["Grade 9 - A"]);
+            await EnsureQuestionsAsync(detailedExamId, DetailedQuestionBank);
+            await EnsureTemplateAsync(detailedExamId);
             _logger.LogInformation("Examiner data seeder completed");
         }
         catch (Exception ex)
@@ -331,13 +402,42 @@ public class DataSeeder : IDataSeeder
             TotalMarks = 10,
             QuestionCount = 10,
             ExamDate = DateTime.UtcNow.Date,
+            Type = ExamType.Mcq,
             CreatedAt = DateTime.UtcNow
         });
 
         return DefaultDemoExamId;
     }
 
-    private async Task EnsureQuestionsAsync(Guid examId)
+    private async Task<Guid> EnsureDetailedExamAsync(Guid schoolId, Guid classId)
+    {
+        var exam = await _queryFactory.Query("Exam")
+            .Where("Id", DefaultDetailedExamId)
+            .FirstOrDefaultAsync<Exam>();
+
+        if (exam is not null)
+        {
+            return exam.Id;
+        }
+
+        await _queryFactory.Query("Exam").InsertAsync(new
+        {
+            Id = DefaultDetailedExamId,
+            SchoolId = schoolId,
+            ClassId = classId,
+            Name = "Demo Detailed Test",
+            Subject = "Science",
+            TotalMarks = 35,
+            QuestionCount = DetailedQuestionBank.Length,
+            ExamDate = DateTime.UtcNow.Date,
+            Type = ExamType.Detailed,
+            CreatedAt = DateTime.UtcNow
+        });
+
+        return DefaultDetailedExamId;
+    }
+
+    private async Task EnsureQuestionsAsync(Guid examId, IEnumerable<QuestionSeedDefinition> questions)
     {
         var existingQuestionIds = await _queryFactory.Query("Question")
             .Where("ExamId", examId)
@@ -352,9 +452,11 @@ public class DataSeeder : IDataSeeder
         }
         await _queryFactory.Query("Question").Where("ExamId", examId).DeleteAsync();
 
-        foreach (var question in QuestionBank)
+        foreach (var question in questions)
         {
-            var optionMap = question.Options.ToDictionary(o => o.Key, o => o.Text);
+            var correctOption = string.IsNullOrWhiteSpace(question.CorrectOption)
+                ? 'A'
+                : question.CorrectOption.Trim()[0];
 
             await _queryFactory.Query("Question").InsertAsync(new
             {
@@ -362,8 +464,16 @@ public class DataSeeder : IDataSeeder
                 ExamId = examId,
                 QuestionNumber = question.QuestionNumber,
                 Text = question.Text,
-                CorrectOption = question.CorrectOption
+                CorrectOption = correctOption,
+                Type = question.Type,
+                Lines = question.Lines,
+                Marks = question.Marks
             });
+
+            if (question.Options is null || !question.Options.Any())
+            {
+                continue;
+            }
 
             foreach (var option in question.Options)
             {
@@ -402,6 +512,51 @@ public class DataSeeder : IDataSeeder
         });
     }
 
-    private sealed record QuestionSeedDefinition(Guid Id, int QuestionNumber, string Text, string CorrectOption, QuestionSeedOption[] Options);
+    private void EnsureSchemaColumns()
+    {
+        EnsureColumn("Exam", "Type", "ALTER TABLE dbo.Exam ADD Type INT NOT NULL CONSTRAINT DF_Exam_Type DEFAULT(0);");
+        EnsureColumn("Question", "Type", "ALTER TABLE dbo.Question ADD Type INT NOT NULL CONSTRAINT DF_Question_Type DEFAULT(0);");
+        EnsureColumn("Question", "Lines", "ALTER TABLE dbo.Question ADD Lines INT NULL;");
+        EnsureColumn("Question", "Marks", "ALTER TABLE dbo.Question ADD Marks INT NULL;");
+    }
+
+    private void EnsureColumn(string table, string column, string alterSql)
+    {
+        using var existsCommand = _connection.CreateCommand();
+        existsCommand.CommandText = @"
+SELECT 1
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_NAME = @table AND COLUMN_NAME = @column";
+
+        var tableParam = existsCommand.CreateParameter();
+        tableParam.ParameterName = "@table";
+        tableParam.Value = table;
+        existsCommand.Parameters.Add(tableParam);
+
+        var columnParam = existsCommand.CreateParameter();
+        columnParam.ParameterName = "@column";
+        columnParam.Value = column;
+        existsCommand.Parameters.Add(columnParam);
+
+        var exists = existsCommand.ExecuteScalar() != null;
+        if (exists)
+        {
+            return;
+        }
+
+        using var alterCommand = _connection.CreateCommand();
+        alterCommand.CommandText = alterSql;
+        alterCommand.ExecuteNonQuery();
+    }
+
+    private sealed record QuestionSeedDefinition(
+        Guid Id,
+        int QuestionNumber,
+        string Text,
+        string? CorrectOption,
+        QuestionType Type,
+        int? Lines,
+        int? Marks,
+        QuestionSeedOption[] Options);
     private sealed record QuestionSeedOption(string Key, string Text, int Order);
 }
