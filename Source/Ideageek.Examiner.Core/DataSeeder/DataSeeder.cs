@@ -224,6 +224,46 @@ public class DataSeeder : IDataSeeder
             null,
             30,
             DiagramBoxSize.Half,
+            Array.Empty<QuestionSeedOption>()),
+        new QuestionSeedDefinition(
+            Guid.Parse("6a6d6f4d-7b77-4f20-9a32-6af7a6b8d501"),
+            5,
+            "Compare renewable and non-renewable energy sources with examples.",
+            null,
+            QuestionType.Detailed,
+            5,
+            18,
+            DiagramBoxSize.Quarter,
+            Array.Empty<QuestionSeedOption>()),
+        new QuestionSeedDefinition(
+            Guid.Parse("c9c1a3fe-8f24-4df9-8b35-1d5ad1b7b602"),
+            6,
+            "Explain the main stages of mitosis in cell division.",
+            null,
+            QuestionType.Detailed,
+            5,
+            22,
+            DiagramBoxSize.Quarter,
+            Array.Empty<QuestionSeedOption>()),
+        new QuestionSeedDefinition(
+            Guid.Parse("f2b4d0d3-12c9-4279-9c7d-4c8e7f4db703"),
+            7,
+            "Describe methods to purify drinking water at home.",
+            null,
+            QuestionType.Detailed,
+            5,
+            12,
+            DiagramBoxSize.Quarter,
+            Array.Empty<QuestionSeedOption>()),
+        new QuestionSeedDefinition(
+            Guid.Parse("13f7a8af-4e74-4b31-b0c9-4da7f5bb8704"),
+            8,
+            "Outline key causes and effects of global warming.",
+            null,
+            QuestionType.Detailed,
+            5,
+            15,
+            DiagramBoxSize.Quarter,
             Array.Empty<QuestionSeedOption>())
     };
 
@@ -434,12 +474,27 @@ public class DataSeeder : IDataSeeder
 
     private async Task<Guid> EnsureDetailedExamAsync(Guid schoolId, Guid classId)
     {
+        var questionCount = DetailedQuestionBank.Length;
+        var totalMarks = DetailedQuestionBank.Sum(q => q.Marks ?? 0);
+
         var exam = await _queryFactory.Query("Exam")
             .Where("Id", DefaultDetailedExamId)
             .FirstOrDefaultAsync<Exam>();
 
         if (exam is not null)
         {
+            var needsUpdate = exam.QuestionCount != questionCount || exam.TotalMarks != totalMarks || exam.Type != ExamType.Detailed;
+            if (needsUpdate)
+            {
+                await _queryFactory.Query("Exam")
+                    .Where("Id", DefaultDetailedExamId)
+                    .UpdateAsync(new
+                    {
+                        QuestionCount = questionCount,
+                        TotalMarks = totalMarks,
+                        Type = ExamType.Detailed
+                    });
+            }
             return exam.Id;
         }
 
@@ -450,8 +505,8 @@ public class DataSeeder : IDataSeeder
             ClassId = classId,
             Name = "Demo Detailed Test",
             Subject = "Science",
-            TotalMarks = 35,
-            QuestionCount = DetailedQuestionBank.Length,
+            TotalMarks = totalMarks,
+            QuestionCount = questionCount,
             ExamDate = DateTime.UtcNow.Date,
             Type = ExamType.Detailed,
             CreatedAt = DateTime.UtcNow

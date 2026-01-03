@@ -331,7 +331,15 @@ DECLARE @DetailedExamId UNIQUEIDENTIFIER = 'B4C1A8F7-52D2-4E71-9B5D-51F9C0B42F18
 IF NOT EXISTS (SELECT 1 FROM dbo.Exam WHERE Id = @DetailedExamId)
 BEGIN
     INSERT INTO dbo.Exam (Id, SchoolId, ClassId, Name, Subject, TotalMarks, QuestionCount, ExamDate, Type)
-    VALUES (@DetailedExamId, @SchoolId, @ClassGrade9, N'Demo Detailed Test', N'Science', 35, 4, SYSDATETIME(), 1);
+    VALUES (@DetailedExamId, @SchoolId, @ClassGrade9, N'Demo Detailed Test', N'Science', 132, 8, SYSDATETIME(), 1);
+END
+ELSE
+BEGIN
+    UPDATE dbo.Exam
+    SET TotalMarks = 132,
+        QuestionCount = 8,
+        Type = 1
+    WHERE Id = @DetailedExamId;
 END
 
 IF EXISTS (SELECT 1 FROM dbo.Question WHERE Id = @DiagramQuestionId)
@@ -344,4 +352,53 @@ ELSE
 BEGIN
     INSERT INTO dbo.Question (Id, ExamId, QuestionNumber, Text, CorrectOption, Type, Lines, Marks, BoxSize)
     VALUES (@DiagramQuestionId, @DetailedExamId, 4, N'Draw a labeled diagram of the human heart.', 'A', 2, NULL, 30, 2);
+END
+
+-- Additional detailed questions to exercise pagination
+IF NOT EXISTS (SELECT 1 FROM dbo.Question WHERE Id = '6a6d6f4d-7b77-4f20-9a32-6af7a6b8d501')
+BEGIN
+    INSERT INTO dbo.Question (Id, ExamId, QuestionNumber, Text, CorrectOption, Type, Lines, Marks, BoxSize)
+    VALUES ('6a6d6f4d-7b77-4f20-9a32-6af7a6b8d501', @DetailedExamId, 5, N'Compare renewable and non-renewable energy sources with examples.', 'A', 1, 5, 18, 1);
+END
+ELSE
+BEGIN
+    UPDATE dbo.Question
+    SET QuestionNumber = 5, Text = N'Compare renewable and non-renewable energy sources with examples.', Type = 1, Lines = 5, Marks = 18, BoxSize = 1
+    WHERE Id = '6a6d6f4d-7b77-4f20-9a32-6af7a6b8d501';
+END
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Question WHERE Id = 'c9c1a3fe-8f24-4df9-8b35-1d5ad1b7b602')
+BEGIN
+    INSERT INTO dbo.Question (Id, ExamId, QuestionNumber, Text, CorrectOption, Type, Lines, Marks, BoxSize)
+    VALUES ('c9c1a3fe-8f24-4df9-8b35-1d5ad1b7b602', @DetailedExamId, 6, N'Explain the main stages of mitosis in cell division.', 'A', 1, 5, 22, 1);
+END
+ELSE
+BEGIN
+    UPDATE dbo.Question
+    SET QuestionNumber = 6, Text = N'Explain the main stages of mitosis in cell division.', Type = 1, Lines = 5, Marks = 22, BoxSize = 1
+    WHERE Id = 'c9c1a3fe-8f24-4df9-8b35-1d5ad1b7b602';
+END
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Question WHERE Id = 'f2b4d0d3-12c9-4279-9c7d-4c8e7f4db703')
+BEGIN
+    INSERT INTO dbo.Question (Id, ExamId, QuestionNumber, Text, CorrectOption, Type, Lines, Marks, BoxSize)
+    VALUES ('f2b4d0d3-12c9-4279-9c7d-4c8e7f4db703', @DetailedExamId, 7, N'Describe methods to purify drinking water at home.', 'A', 1, 5, 12, 1);
+END
+ELSE
+BEGIN
+    UPDATE dbo.Question
+    SET QuestionNumber = 7, Text = N'Describe methods to purify drinking water at home.', Type = 1, Lines = 5, Marks = 12, BoxSize = 1
+    WHERE Id = 'f2b4d0d3-12c9-4279-9c7d-4c8e7f4db703';
+END
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Question WHERE Id = '13f7a8af-4e74-4b31-b0c9-4da7f5bb8704')
+BEGIN
+    INSERT INTO dbo.Question (Id, ExamId, QuestionNumber, Text, CorrectOption, Type, Lines, Marks, BoxSize)
+    VALUES ('13f7a8af-4e74-4b31-b0c9-4da7f5bb8704', @DetailedExamId, 8, N'Outline key causes and effects of global warming.', 'A', 1, 5, 15, 1);
+END
+ELSE
+BEGIN
+    UPDATE dbo.Question
+    SET QuestionNumber = 8, Text = N'Outline key causes and effects of global warming.', Type = 1, Lines = 5, Marks = 15, BoxSize = 1
+    WHERE Id = '13f7a8af-4e74-4b31-b0c9-4da7f5bb8704';
 END

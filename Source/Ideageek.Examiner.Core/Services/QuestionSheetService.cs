@@ -159,8 +159,8 @@ public class QuestionSheetService : IQuestionSheetService
         {
             var detailedPayloadJson = JsonSerializer.Serialize(BuildDetailedPayload(data));
             var detailedScriptOutput = await RunDetailedSheetScriptAsync(detailedPayloadJson, "question");
-            var detailedImageBase64 = ExtractImageBase64(detailedScriptOutput);
-            var detailedFileName = await SaveSheetImageAsync(data.Exam, detailedImageBase64, "question");
+            var detailedImages = ExtractImagesBase64(detailedScriptOutput);
+            var detailedFileName = await SaveSheetImagesAsync(data.Exam, detailedImages, "question");
 
             data.Exam.QuestionSheetFileName = detailedFileName;
             await _examRepository.UpdateAsync(data.Exam);
@@ -180,8 +180,8 @@ public class QuestionSheetService : IQuestionSheetService
         });
 
         var scriptOutput = await RunQuestionSheetScriptAsync(payloadJson, "questionSheet");
-        var imageBase64 = ExtractImageBase64(scriptOutput);
-        var mcqFileName = await SaveSheetImageAsync(data.Exam, imageBase64, "question");
+        var images = ExtractImagesBase64(scriptOutput);
+        var mcqFileName = await SaveSheetImagesAsync(data.Exam, images, "question");
 
         data.Exam.QuestionSheetFileName = mcqFileName;
         await _examRepository.UpdateAsync(data.Exam);
@@ -205,8 +205,8 @@ public class QuestionSheetService : IQuestionSheetService
         {
             var detailedPayloadJson = JsonSerializer.Serialize(BuildDetailedPayload(data));
             var detailedScriptOutput = await RunDetailedSheetScriptAsync(detailedPayloadJson, "answer");
-            var detailedImageBase64 = ExtractImageBase64(detailedScriptOutput);
-            var detailedAnswerFileName = await SaveSheetImageAsync(data.Exam, detailedImageBase64, "answer");
+            var detailedImages = ExtractImagesBase64(detailedScriptOutput);
+            var detailedAnswerFileName = await SaveSheetImagesAsync(data.Exam, detailedImages, "answer");
 
             data.Exam.AnswerSheetFileName = detailedAnswerFileName;
             await _examRepository.UpdateAsync(data.Exam);
@@ -225,8 +225,8 @@ public class QuestionSheetService : IQuestionSheetService
         });
 
         var scriptOutput = await RunQuestionSheetScriptAsync(payloadJson, "answerSheet");
-        var imageBase64 = ExtractImageBase64(scriptOutput);
-        var mcqAnswerFileName = await SaveSheetImageAsync(data.Exam, imageBase64, "answer");
+        var images = ExtractImagesBase64(scriptOutput);
+        var mcqAnswerFileName = await SaveSheetImagesAsync(data.Exam, images, "answer");
 
         data.Exam.AnswerSheetFileName = mcqAnswerFileName;
         await _examRepository.UpdateAsync(data.Exam);
@@ -447,7 +447,7 @@ public class QuestionSheetService : IQuestionSheetService
         }
     }
 
-    private static string ExtractImageBase64(string scriptOutput)
+    private static IReadOnlyList<string> ExtractImagesBase64(string scriptOutput)
     {
         if (string.IsNullOrWhiteSpace(scriptOutput))
         {
@@ -457,38 +457,81 @@ public class QuestionSheetService : IQuestionSheetService
         using var document = JsonDocument.Parse(scriptOutput);
         var root = document.RootElement;
 
+        if (TryReadImageArray(root, "images", out var images) ||
+            TryReadImageArray(root, "images_base64", out images) ||
+            TryReadImageArray(root, "imagesBase64", out images))
+        {
+            return images;
+        }
+
         if (root.TryGetProperty("image_base64", out var imageElement) ||
             root.TryGetProperty("imageBase64", out imageElement))
         {
             var value = imageElement.GetString();
             if (!string.IsNullOrWhiteSpace(value))
             {
-                return value;
+                return new[] { value };
             }
         }
 
-        throw new InvalidOperationException("Question sheet script response did not include an image_base64 payload.");
+        throw new InvalidOperationException("Question sheet script response did not include an image payload.");
     }
 
-    private async Task<string> SaveSheetImageAsync(Exam exam, string base64Value, string sheetLabel)
+    private static bool TryReadImageArray(JsonElement root, string propertyName, out IReadOnlyList<string> values)
     {
-        var bytes = Convert.FromBase64String(base64Value);
-        var extension = DetectImageExtension(bytes);
-        var documentsFolder = _generationOptions.DocumentsFolder;
+        values = Array.Empty<string>();
+        if (!root.TryGetProperty(propertyName, out var element) || element.ValueKind != JsonValueKind.Array)
+        {
+            return false;
+        }
 
+        var list = new List<string>();
+        foreach (var item in element.EnumerateArray())
+        {
+            if (item.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(item.GetString()))
+            {
+                list.Add(item.GetString()!);
+            }
+        }
+
+        if (list.Count == 0)
+        {
+            return false;
+        }
+
+        values = list;
+        return true;
+    }
+
+    private async Task<string> SaveSheetImagesAsync(Exam exam, IReadOnlyList<string> base64Values, string sheetLabel)
+    {
+        if (base64Values is null || base64Values.Count == 0)
+        {
+            throw new InvalidOperationException("No sheet images were generated.");
+        }
+
+        var documentsFolder = _generationOptions.DocumentsFolder;
         if (string.IsNullOrWhiteSpace(documentsFolder))
         {
             throw new InvalidOperationException("Documents folder for question sheets is not configured.");
         }
 
         Directory.CreateDirectory(documentsFolder);
+        DeleteExistingSheets(exam, sheetLabel, documentsFolder);
 
-        var fileName = BuildSheetFileName(exam, sheetLabel, extension);
-        DeletePreviousSheetIfChanged(exam, sheetLabel, documentsFolder, fileName);
+        string? primaryFileName = null;
+        for (var i = 0; i < base64Values.Count; i++)
+        {
+            var bytes = Convert.FromBase64String(base64Values[i]);
+            var extension = DetectImageExtension(bytes);
+            var fileName = BuildSheetFileName(exam, sheetLabel, extension, pageNumber: i + 1);
+            var filePath = Path.Combine(documentsFolder, fileName);
+            await File.WriteAllBytesAsync(filePath, bytes);
 
-        var filePath = Path.Combine(documentsFolder, fileName);
-        await File.WriteAllBytesAsync(filePath, bytes);
-        return fileName;
+            primaryFileName ??= fileName;
+        }
+
+        return primaryFileName ?? string.Empty;
     }
 
     private static string DetectImageExtension(ReadOnlySpan<byte> bytes)
@@ -507,48 +550,54 @@ public class QuestionSheetService : IQuestionSheetService
         return ".png";
     }
 
-    private static string BuildSheetFileName(Exam exam, string sheetLabel, string extension)
+    private static string BuildSheetFileName(Exam exam, string sheetLabel, string extension, int pageNumber = 1)
     {
         if (sheetLabel.Equals("question", StringComparison.OrdinalIgnoreCase))
         {
-            return $"question_sheet_{exam.Id:N}{extension}";
+            return $"question-sheet_{exam.Id:N}_p{pageNumber}{extension}";
         }
 
         if (sheetLabel.Equals("answer", StringComparison.OrdinalIgnoreCase))
         {
-            return $"answer_sheet_{exam.Id:N}{extension}";
+            return $"answer-sheet_{exam.Id:N}_p{pageNumber}{extension}";
         }
 
         var safeExamName = SanitizeFileName(exam.Name);
         var datedSuffix = DateTime.UtcNow.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture);
         var labelPart = string.IsNullOrWhiteSpace(sheetLabel) ? string.Empty : $"_{sheetLabel}";
-        return $"{safeExamName}{labelPart}_{datedSuffix}{extension}";
+        return $"{safeExamName}{labelPart}_{datedSuffix}_p{pageNumber}{extension}";
     }
 
-    private static void DeletePreviousSheetIfChanged(Exam exam, string sheetLabel, string documentsFolder, string newFileName)
+    private static void DeleteExistingSheets(Exam exam, string sheetLabel, string documentsFolder)
     {
-        string? previousFileName = sheetLabel.ToLowerInvariant() switch
+        var label = sheetLabel.ToLowerInvariant() switch
         {
-            "question" => exam.QuestionSheetFileName,
-            "answer" => exam.AnswerSheetFileName,
-            _ => null
+            "question" => "question-sheet",
+            "answer" => "answer-sheet",
+            _ => SanitizeFileName(sheetLabel)
         };
 
-        if (string.IsNullOrWhiteSpace(previousFileName) || previousFileName.Equals(newFileName, StringComparison.OrdinalIgnoreCase))
+        var legacyLabel = label.Replace("-", "_");
+        var patterns = new[]
         {
-            return;
-        }
+            $"{label}_{exam.Id:N}_p*.*",
+            $"{label}_{exam.Id:N}.*",
+            $"{legacyLabel}_{exam.Id:N}_p*.*",
+            $"{legacyLabel}_{exam.Id:N}.*"
+        };
 
-        var previousPath = Path.Combine(documentsFolder, previousFileName);
-        if (File.Exists(previousPath))
+        foreach (var pattern in patterns)
         {
-            try
+            foreach (var path in Directory.GetFiles(documentsFolder, pattern))
             {
-                File.Delete(previousPath);
-            }
-            catch
-            {
-                // Ignore failures when cleaning up an old file.
+                try
+                {
+                    File.Delete(path);
+                }
+                catch
+                {
+                    // Ignore failures when cleaning up an old file.
+                }
             }
         }
     }

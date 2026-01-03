@@ -21,7 +21,8 @@
    - Obtain a JWT via `POST /api/auth/login` with the credentials above, then call other endpoints with `Authorization: Bearer <token>`.
 6. **Question sheet helpers**
    - For Python-based image/text generation, `GET /api/question-sheets/template/{examId}` still returns the questions, options map, and metadata that drive the script.
-   - Generate resources via `GET /api/question-sheets/generate-question-sheet/{examId}` and `/generate-answer-sheet/{examId}`; both call the Python script, save the PNG to `wwwroot/Documents/Exam`, and persist the file name against the exam.
+   - MCQ sheets: `GET /api/question-sheets/generate-question-sheet/{examId}` and `/generate-answer-sheet/{examId}` call the Python OMR script, persist files to `wwwroot/Documents/Exam`, and now name outputs `question-sheet_<examId>_p{page}.png` or `answer-sheet_<examId>_p{page}.png` (multi-page if needed).
+   - Detailed sheets: `GET /api/question-sheets/generate-detail-question-sheet/{examId}` and `/generate-detail-answer-sheet/{examId}` use the detailed Python script (lines or diagram rectangles). Multi-page images are returned; filenames follow the same `*-sheet_<examId>_p{page}.png` pattern.
    - To calculate scored results from an uploaded answer sheet image, `POST /api/question-sheets/{examId}/calculate-score` accepts `multipart/form-data` with `studentId` (text) and `answerSheet` (file). The service saves the upload, passes it to the Python `scoreCheck` mode (`--scanned-sheet`), and returns counts/details for correct/wrong answers.
    - Legacy dummy OMR helpers still exist (`GET /api/question-sheets/dummy/pdf` and `POST /api/question-sheets/dummy/pdf/evaluate-upload`).
 
