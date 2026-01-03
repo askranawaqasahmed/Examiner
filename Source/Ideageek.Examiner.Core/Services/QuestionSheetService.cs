@@ -433,10 +433,7 @@ public class QuestionSheetService : IQuestionSheetService
     private async Task<string> SaveSheetImageAsync(Exam exam, string base64Value, string sheetLabel)
     {
         var bytes = Convert.FromBase64String(base64Value);
-        var safeExamName = SanitizeFileName(exam.Name);
-        var datedSuffix = DateTime.UtcNow.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture);
-        var labelPart = string.IsNullOrWhiteSpace(sheetLabel) ? string.Empty : $"_{sheetLabel}";
-        var fileName = $"{safeExamName}{labelPart}_{datedSuffix}.png";
+        var extension = DetectImageExtension(bytes);
         var documentsFolder = _generationOptions.DocumentsFolder;
 
         if (string.IsNullOrWhiteSpace(documentsFolder))
@@ -445,9 +442,75 @@ public class QuestionSheetService : IQuestionSheetService
         }
 
         Directory.CreateDirectory(documentsFolder);
+
+        var fileName = BuildSheetFileName(exam, sheetLabel, extension);
+        DeletePreviousSheetIfChanged(exam, sheetLabel, documentsFolder, fileName);
+
         var filePath = Path.Combine(documentsFolder, fileName);
         await File.WriteAllBytesAsync(filePath, bytes);
         return fileName;
+    }
+
+    private static string DetectImageExtension(ReadOnlySpan<byte> bytes)
+    {
+        if (bytes.Length >= 4 &&
+            bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47)
+        {
+            return ".png";
+        }
+
+        if (bytes.Length >= 2 && bytes[0] == 0xFF && bytes[1] == 0xD8)
+        {
+            return ".jpg";
+        }
+
+        return ".png";
+    }
+
+    private static string BuildSheetFileName(Exam exam, string sheetLabel, string extension)
+    {
+        if (sheetLabel.Equals("question", StringComparison.OrdinalIgnoreCase))
+        {
+            return $"question_sheet_{exam.Id:N}{extension}";
+        }
+
+        if (sheetLabel.Equals("answer", StringComparison.OrdinalIgnoreCase))
+        {
+            return $"answer_sheet_{exam.Id:N}{extension}";
+        }
+
+        var safeExamName = SanitizeFileName(exam.Name);
+        var datedSuffix = DateTime.UtcNow.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture);
+        var labelPart = string.IsNullOrWhiteSpace(sheetLabel) ? string.Empty : $"_{sheetLabel}";
+        return $"{safeExamName}{labelPart}_{datedSuffix}{extension}";
+    }
+
+    private static void DeletePreviousSheetIfChanged(Exam exam, string sheetLabel, string documentsFolder, string newFileName)
+    {
+        string? previousFileName = sheetLabel.ToLowerInvariant() switch
+        {
+            "question" => exam.QuestionSheetFileName,
+            "answer" => exam.AnswerSheetFileName,
+            _ => null
+        };
+
+        if (string.IsNullOrWhiteSpace(previousFileName) || previousFileName.Equals(newFileName, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var previousPath = Path.Combine(documentsFolder, previousFileName);
+        if (File.Exists(previousPath))
+        {
+            try
+            {
+                File.Delete(previousPath);
+            }
+            catch
+            {
+                // Ignore failures when cleaning up an old file.
+            }
+        }
     }
 
     private async Task<string> SaveUploadedSheetAsync(Exam exam, string studentId, Stream sheetStream, string originalFileName)
