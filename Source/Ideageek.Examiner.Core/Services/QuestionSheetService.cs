@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
-using System.Drawing;
-using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -159,14 +157,18 @@ public class QuestionSheetService : IQuestionSheetService
 
         if (data.Exam.Type == ExamType.Detailed)
         {
-            var questionFileName = await GenerateDetailedSheetAsync(data, "question");
-            data.Exam.QuestionSheetFileName = questionFileName;
+            var detailedPayloadJson = JsonSerializer.Serialize(BuildDetailedPayload(data));
+            var detailedScriptOutput = await RunDetailedSheetScriptAsync(detailedPayloadJson, "question");
+            var detailedImageBase64 = ExtractImageBase64(detailedScriptOutput);
+            var detailedFileName = await SaveSheetImageAsync(data.Exam, detailedImageBase64, "question");
+
+            data.Exam.QuestionSheetFileName = detailedFileName;
             await _examRepository.UpdateAsync(data.Exam);
 
             return new QuestionSheetGenerationResponseDto
             {
-                FileName = questionFileName,
-                Url = BuildDocumentUrl(questionFileName)
+                FileName = detailedFileName,
+                Url = BuildDocumentUrl(detailedFileName)
             };
         }
 
@@ -201,14 +203,18 @@ public class QuestionSheetService : IQuestionSheetService
 
         if (data.Exam.Type == ExamType.Detailed)
         {
-            var answerFileName = await GenerateDetailedSheetAsync(data, "answer");
-            data.Exam.AnswerSheetFileName = answerFileName;
+            var detailedPayloadJson = JsonSerializer.Serialize(BuildDetailedPayload(data));
+            var detailedScriptOutput = await RunDetailedSheetScriptAsync(detailedPayloadJson, "answer");
+            var detailedImageBase64 = ExtractImageBase64(detailedScriptOutput);
+            var detailedAnswerFileName = await SaveSheetImageAsync(data.Exam, detailedImageBase64, "answer");
+
+            data.Exam.AnswerSheetFileName = detailedAnswerFileName;
             await _examRepository.UpdateAsync(data.Exam);
 
             return new QuestionSheetGenerationResponseDto
             {
-                FileName = answerFileName,
-                Url = BuildDocumentUrl(answerFileName)
+                FileName = detailedAnswerFileName,
+                Url = BuildDocumentUrl(detailedAnswerFileName)
             };
         }
 
@@ -547,6 +553,88 @@ public class QuestionSheetService : IQuestionSheetService
         }
     }
 
+    private object BuildDetailedPayload(ExamQuestionData data)
+    {
+        return new
+        {
+            examId = data.Exam.Id,
+            examName = data.Exam.Name,
+            questions = data.Questions
+                .OrderBy(q => q.QuestionNumber)
+                .Select(q => new
+                {
+                    id = q.Id,
+                    questionNumber = q.QuestionNumber,
+                    text = q.Text,
+                    lines = q.Lines ?? 3,
+                    marks = q.Marks ?? 0
+                })
+        };
+    }
+
+    private async Task<string> RunDetailedSheetScriptAsync(string payloadJson, string sheetLabel)
+    {
+        var scriptPath = Path.Combine(_generationOptions.ScriptPath is null
+            ? string.Empty
+            : Path.GetDirectoryName(_generationOptions.ScriptPath) ?? string.Empty,
+            "detailed_question_sheet.py");
+
+        if (string.IsNullOrWhiteSpace(scriptPath) || !File.Exists(scriptPath))
+        {
+            throw new FileNotFoundException("Detailed question sheet script not found.", scriptPath);
+        }
+
+        var tempPayloadPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}_detailed.json");
+        await File.WriteAllTextAsync(tempPayloadPath, payloadJson, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+
+        try
+        {
+            var configuredPython = string.IsNullOrWhiteSpace(_generationOptions.PythonPath)
+                ? "python"
+                : _generationOptions.PythonPath.Trim();
+
+            var startInfo = new ProcessStartInfo(configuredPython)
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WorkingDirectory = Path.GetDirectoryName(scriptPath) ?? Environment.CurrentDirectory
+            };
+
+            startInfo.ArgumentList.Add(scriptPath);
+            startInfo.ArgumentList.Add("--json");
+            startInfo.ArgumentList.Add(tempPayloadPath);
+            startInfo.ArgumentList.Add("--sheet");
+            startInfo.ArgumentList.Add(sheetLabel);
+
+            using var process = new Process { StartInfo = startInfo };
+            process.Start();
+
+            var stdoutTask = process.StandardOutput.ReadToEndAsync();
+            var stderrTask = process.StandardError.ReadToEndAsync();
+            await process.WaitForExitAsync();
+
+            var stdout = await stdoutTask;
+            var stderr = await stderrTask;
+
+            if (process.ExitCode != 0)
+            {
+                throw new InvalidOperationException(
+                    $"Detailed sheet script failed (exit code: {process.ExitCode}).\n{stderr.Trim()}");
+            }
+
+            return stdout;
+        }
+        finally
+        {
+            if (File.Exists(tempPayloadPath))
+            {
+                File.Delete(tempPayloadPath);
+            }
+        }
+    }
+
     private async Task<string> SaveUploadedSheetAsync(Exam exam, string studentId, Stream sheetStream, string originalFileName)
     {
         var documentsFolder = _generationOptions.DocumentsFolder;
@@ -658,58 +746,6 @@ public class QuestionSheetService : IQuestionSheetService
         }
 
         return response;
-    }
-
-    private async Task<string> GenerateDetailedSheetAsync(ExamQuestionData data, string sheetLabel)
-    {
-        var imageBytes = RenderDetailedSheetPng(data.Exam, data.Questions, sheetLabel);
-        var base64 = Convert.ToBase64String(imageBytes);
-        return await SaveSheetImageAsync(data.Exam, base64, sheetLabel);
-    }
-
-    private static byte[] RenderDetailedSheetPng(Exam exam, IReadOnlyList<Question> questions, string sheetLabel)
-    {
-        const int width = 2480;
-        const int height = 3508;
-        using var bitmap = new Bitmap(width, height);
-        using var graphics = Graphics.FromImage(bitmap);
-        graphics.Clear(Color.White);
-
-        using var headerFont = new Font("Arial", 32, FontStyle.Bold);
-        using var subHeaderFont = new Font("Arial", 22, FontStyle.Regular);
-        using var bodyFont = new Font("Arial", 20, FontStyle.Regular);
-        using var pen = new Pen(Color.Black, 2);
-
-        graphics.DrawString(exam.Name, headerFont, Brushes.Black, new PointF(120, 80));
-        graphics.DrawString($"Exam ID: {exam.Id}", subHeaderFont, Brushes.Black, new PointF(120, 130));
-        graphics.DrawString($"Type: Detailed", subHeaderFont, Brushes.Black, new PointF(120, 170));
-        graphics.DrawString($"Sheet: {sheetLabel}", subHeaderFont, Brushes.Black, new PointF(120, 210));
-
-        float currentY = 280;
-        foreach (var question in questions.OrderBy(q => q.QuestionNumber))
-        {
-            var marksText = question.Marks.HasValue ? $" ({question.Marks} marks)" : string.Empty;
-            graphics.DrawString($"Q{question.QuestionNumber}) {question.Text}{marksText}", bodyFont, Brushes.Black, new PointF(120, currentY));
-            currentY += 40;
-
-            var lines = Math.Max(1, question.Lines ?? 3);
-            for (var i = 0; i < lines; i++)
-            {
-                var y = currentY + i * 30;
-                graphics.DrawLine(pen, 140, y, width - 140, y);
-            }
-
-            currentY += lines * 30 + 40;
-
-            if (currentY > height - 200)
-            {
-                break;
-            }
-        }
-
-        using var ms = new MemoryStream();
-        bitmap.Save(ms, ImageFormat.Png);
-        return ms.ToArray();
     }
 
     private string BuildDocumentUrl(string fileName)

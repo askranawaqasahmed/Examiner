@@ -42,6 +42,20 @@ public class QuestionSheetController : ControllerBase
         }
     }
 
+    [HttpGet("generate-detail-question-sheet/{examId:guid}")]
+    public async Task<ActionResult<ApiResponse<QuestionSheetGenerationResponseDto>>> GenerateDetailQuestionSheet(Guid examId)
+    {
+        try
+        {
+            var result = await _questionSheetService.GenerateQuestionSheetAsync(examId);
+            return BuildGenerationResponse(result);
+        }
+        catch (Exception ex)
+        {
+            return BuildExceptionResponse<QuestionSheetGenerationResponseDto>(ex);
+        }
+    }
+
     [HttpGet("generate-answer-sheet/{examId:guid}")]
     public async Task<ActionResult<ApiResponse<QuestionSheetGenerationResponseDto>>> GenerateAnswerSheet(Guid examId)
     {
